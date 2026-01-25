@@ -46,6 +46,7 @@ export default function DoctorDashboardScreen({ navigation, route }: DoctorDashb
   const { doctorName, specialty } = route.params;
   
   const [clinicCode, setClinicCode] = useState("");
+  const [customCodeInput, setCustomCodeInput] = useState("");
   const [showCodeModal, setShowCodeModal] = useState(false);
   const [patients, setPatients] = useState<Patient[]>([
     {
@@ -79,6 +80,15 @@ export default function DoctorDashboardScreen({ navigation, route }: DoctorDashb
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const newCode = generateClinicCode();
     setClinicCode(newCode);
+    setCustomCodeInput("");
+  };
+
+  const handleSetCustomCode = () => {
+    if (customCodeInput.trim().length >= 3) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setClinicCode(customCodeInput.trim().toUpperCase());
+      setCustomCodeInput("");
+    }
   };
 
   const handleCopyCode = async () => {
@@ -233,11 +243,54 @@ export default function DoctorDashboardScreen({ navigation, route }: DoctorDashb
                 {language === "ar" ? "نسخ الرمز" : "Copy Code"}
               </Button>
             </View>
+
+            <View style={[styles.customCodeSection, { borderTopColor: theme.border }]}>
+              <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: Spacing.md }}>
+                {language === "ar" ? "أو أدخل رمزاً مخصصاً" : "Or enter a custom code"}
+              </ThemedText>
+              
+              <View style={styles.customCodeRow}>
+                <TextInput
+                  style={[
+                    styles.customCodeInput,
+                    { 
+                      backgroundColor: theme.backgroundSecondary, 
+                      color: theme.text,
+                      borderColor: customCodeInput.length >= 3 ? SaleemColors.accent : theme.border,
+                    },
+                  ]}
+                  placeholder={language === "ar" ? "رمز مخصص (3+ أحرف)" : "Custom code (3+ chars)"}
+                  placeholderTextColor={theme.textSecondary}
+                  value={customCodeInput}
+                  onChangeText={(text) => setCustomCodeInput(text.toUpperCase())}
+                  autoCapitalize="characters"
+                  maxLength={10}
+                />
+                <Pressable
+                  onPress={handleSetCustomCode}
+                  disabled={customCodeInput.trim().length < 3}
+                  style={[
+                    styles.setCodeButton,
+                    { 
+                      backgroundColor: customCodeInput.trim().length >= 3 
+                        ? SaleemColors.accent 
+                        : theme.backgroundSecondary,
+                    },
+                  ]}
+                >
+                  <Feather 
+                    name="check" 
+                    size={20} 
+                    color={customCodeInput.trim().length >= 3 ? "#FFFFFF" : theme.textSecondary} 
+                  />
+                </Pressable>
+              </View>
+            </View>
             
             <Pressable onPress={handleGenerateCode} style={styles.regenerateButton}>
               <Feather name="refresh-cw" size={16} color={SaleemColors.primary} />
               <ThemedText type="button" style={{ color: SaleemColors.primary }}>
-                {language === "ar" ? "إنشاء رمز جديد" : "Generate New Code"}
+                {language === "ar" ? "إنشاء رمز عشوائي" : "Generate Random Code"}
               </ThemedText>
             </Pressable>
           </View>
@@ -353,7 +406,36 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    marginTop: Spacing.xl,
+    marginTop: Spacing.lg,
     padding: Spacing.md,
+  },
+  customCodeSection: {
+    width: "100%",
+    marginTop: Spacing.xl,
+    paddingTop: Spacing.xl,
+    borderTopWidth: 1,
+    alignItems: "center",
+  },
+  customCodeRow: {
+    flexDirection: "row",
+    width: "100%",
+    gap: Spacing.sm,
+  },
+  customCodeInput: {
+    flex: 1,
+    height: 48,
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.lg,
+    fontSize: 18,
+    textAlign: "center",
+    letterSpacing: 2,
+    borderWidth: 2,
+  },
+  setCodeButton: {
+    width: 48,
+    height: 48,
+    borderRadius: BorderRadius.sm,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
