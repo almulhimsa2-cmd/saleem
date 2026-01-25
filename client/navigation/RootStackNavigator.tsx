@@ -3,12 +3,14 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import MainTabNavigator from "@/navigation/MainTabNavigator";
 import OnboardingNavigator from "@/navigation/OnboardingNavigator";
+import DoctorNavigator from "@/navigation/DoctorNavigator";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useUser } from "@/contexts/UserContext";
 
 export type RootStackParamList = {
   Onboarding: undefined;
   Main: undefined;
+  Doctor: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -28,6 +30,7 @@ export default function RootStackNavigator() {
       ) : (
         <Stack.Screen name="Main" component={MainTabNavigator} />
       )}
+      <Stack.Screen name="Doctor" component={DoctorNavigator} />
     </Stack.Navigator>
   );
 }

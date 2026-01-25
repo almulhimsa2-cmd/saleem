@@ -35,8 +35,7 @@ export default function PDPLConsentScreen({ navigation }: PDPLConsentScreenProps
   const handleAccept = () => {
     if (accepted) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      updateUser({ pdplConsent: true });
-      navigation.navigate("AvatarSetup");
+      updateUser({ pdplConsent: true, onboardingComplete: true });
     }
   };
 

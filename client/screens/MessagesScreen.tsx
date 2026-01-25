@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { 
   View, 
   StyleSheet, 
@@ -7,6 +7,7 @@ import {
   Pressable, 
   KeyboardAvoidingView,
   Platform,
+  Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -16,12 +17,11 @@ import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
-import { BodyMap } from "@/components/BodyMap";
-import { Card } from "@/components/Card";
+import { Button } from "@/components/Button";
 import { Disclaimer } from "@/components/Disclaimer";
 import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useUser, Message, Symptom } from "@/contexts/UserContext";
+import { useUser, Message } from "@/contexts/UserContext";
 import { Spacing, SaleemColors, BorderRadius, Shadows } from "@/constants/theme";
 
 export default function MessagesScreen() {
@@ -30,17 +30,43 @@ export default function MessagesScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
   const { t, isRTL, language } = useLanguage();
-  const { user, addMessage, addSymptom } = useUser();
+  const { user, addMessage, updateUser } = useUser();
   
   const [messageText, setMessageText] = useState("");
-  const [selectedOrgan, setSelectedOrgan] = useState<string | undefined>();
-  const [showSymptomLogger, setShowSymptomLogger] = useState(false);
+  const [showCodeModal, setShowCodeModal] = useState(false);
+  const [clinicCodeInput, setClinicCodeInput] = useState("");
   const flatListRef = useRef<FlatList>(null);
 
-  const chatUnlocked = user.instructionsReviewed;
+  const hasClinicCode = !!user.clinicCode;
+
+  useEffect(() => {
+    if (!hasClinicCode) {
+      setShowCodeModal(true);
+    }
+  }, [hasClinicCode]);
+
+  const handleJoinClinic = () => {
+    if (clinicCodeInput.trim()) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      updateUser({ clinicCode: clinicCodeInput.trim().toUpperCase() });
+      setShowCodeModal(false);
+      setClinicCodeInput("");
+      
+      setTimeout(() => {
+        addMessage({
+          id: "",
+          text: language === "ar" 
+            ? "مرحباً بك! أنا طبيبك. كيف يمكنني مساعدتك اليوم؟" 
+            : "Welcome! I'm your doctor. How can I help you today?",
+          sender: "doctor",
+          timestamp: new Date().toISOString(),
+        });
+      }, 500);
+    }
+  };
 
   const handleSendMessage = () => {
-    if (messageText.trim() && chatUnlocked) {
+    if (messageText.trim() && hasClinicCode) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       addMessage({
         id: "",
@@ -51,35 +77,23 @@ export default function MessagesScreen() {
       setMessageText("");
       
       setTimeout(() => {
+        const responses = language === "ar" ? [
+          "شكراً لرسالتك. سأراجعها وأرد عليك قريباً.",
+          "تلقيت رسالتك. هل يمكنك تقديم المزيد من التفاصيل؟",
+          "فهمت. سأتابع معك خلال موعدنا القادم.",
+        ] : [
+          "Thank you for your message. I'll review it and get back to you soon.",
+          "I've received your message. Can you provide more details?",
+          "Understood. I'll follow up with you during our next appointment.",
+        ];
+        const randomResponse = responses[Math.floor(Math.random() * responses.length)];
         addMessage({
           id: "",
-          text: language === "ar" 
-            ? "شكراً لرسالتك. سيقوم الطبيب بالرد قريباً." 
-            : "Thank you for your message. The doctor will respond soon.",
+          text: randomResponse,
           sender: "doctor",
           timestamp: new Date().toISOString(),
         });
-      }, 1000);
-    }
-  };
-
-  const handleOrganPress = (organ: string) => {
-    setSelectedOrgan(organ);
-    setShowSymptomLogger(true);
-  };
-
-  const handleLogSymptom = (severity: number, description: string) => {
-    if (selectedOrgan) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      addSymptom({
-        id: "",
-        organ: selectedOrgan,
-        severity,
-        description,
-        date: new Date().toISOString(),
-      });
-      setShowSymptomLogger(false);
-      setSelectedOrgan(undefined);
+      }, 1500);
     }
   };
 
@@ -94,8 +108,17 @@ export default function MessagesScreen() {
               backgroundColor: isPatient ? SaleemColors.primary : theme.cardBackground,
               alignSelf: isPatient ? "flex-end" : "flex-start",
             },
+            Shadows.small,
           ]}
         >
+          {!isPatient ? (
+            <View style={styles.doctorLabel}>
+              <Feather name="user" size={12} color={SaleemColors.accent} />
+              <ThemedText type="caption" style={{ color: SaleemColors.accent }}>
+                {language === "ar" ? "الطبيب" : "Doctor"}
+              </ThemedText>
+            </View>
+          ) : null}
           <ThemedText 
             type="body" 
             style={{ color: isPatient ? "#FFFFFF" : theme.text }}
@@ -107,6 +130,7 @@ export default function MessagesScreen() {
             style={{ 
               color: isPatient ? "rgba(255,255,255,0.7)" : theme.textSecondary,
               marginTop: Spacing.xs,
+              textAlign: isPatient ? "right" : "left",
             }}
           >
             {new Date(item.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -128,54 +152,71 @@ export default function MessagesScreen() {
         keyExtractor={(item) => item.id}
         renderItem={renderMessage}
         contentContainerStyle={{
-          paddingTop: headerHeight + Spacing.xl,
+          paddingTop: headerHeight + Spacing.lg,
           paddingBottom: Spacing.lg,
           paddingHorizontal: Spacing.lg,
+          flexGrow: 1,
         }}
         ListHeaderComponent={
-          <View>
+          <View style={{ marginBottom: Spacing.lg }}>
             <Disclaimer />
             
-            <Animated.View 
-              entering={FadeInDown.delay(100).duration(500)}
-              style={styles.bodyMapSection}
-            >
-              <ThemedText type="h4" style={{ marginBottom: Spacing.md, textAlign: "center" }}>
-                {t("symptomLogger")}
-              </ThemedText>
-              <ThemedText 
-                type="small" 
-                style={{ color: theme.textSecondary, textAlign: "center", marginBottom: Spacing.lg }}
+            {hasClinicCode ? (
+              <Animated.View 
+                entering={FadeInDown.delay(100).duration(500)}
+                style={[styles.clinicHeader, { backgroundColor: SaleemColors.accent + "15" }]}
               >
-                {t("tapOrgan")}
-              </ThemedText>
-              <BodyMap onOrganPress={handleOrganPress} selectedOrgan={selectedOrgan} />
-            </Animated.View>
-
-            {!chatUnlocked ? (
-              <Animated.View entering={FadeInDown.delay(200).duration(500)}>
-                <Card style={[styles.lockedCard, { borderColor: SaleemColors.warning }]}>
-                  <Feather name="lock" size={24} color={SaleemColors.warning} />
-                  <ThemedText type="body" style={{ textAlign: "center", marginTop: Spacing.sm }}>
-                    {t("reviewInstructions")}
+                <Feather name="shield" size={20} color={SaleemColors.accent} />
+                <View style={{ flex: 1 }}>
+                  <ThemedText type="small" style={{ color: SaleemColors.accent }}>
+                    {language === "ar" ? "متصل بالعيادة" : "Connected to Clinic"}
                   </ThemedText>
-                </Card>
-              </Animated.View>
-            ) : user.messages.length === 0 ? (
-              <Animated.View entering={FadeInDown.delay(200).duration(500)}>
-                <View style={styles.emptyChat}>
-                  <Feather name="message-circle" size={48} color={theme.textSecondary} />
-                  <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.md }}>
-                    {language === "ar" ? "لا توجد رسائل بعد" : "No messages yet"}
+                  <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+                    {language === "ar" ? `رمز: ${user.clinicCode}` : `Code: ${user.clinicCode}`}
                   </ThemedText>
                 </View>
+                <Pressable 
+                  onPress={() => setShowCodeModal(true)}
+                  style={styles.changeButton}
+                >
+                  <ThemedText type="caption" style={{ color: SaleemColors.primary }}>
+                    {language === "ar" ? "تغيير" : "Change"}
+                  </ThemedText>
+                </Pressable>
               </Animated.View>
-            ) : (
-              <ThemedText type="h4" style={{ marginTop: Spacing.xl, marginBottom: Spacing.md }}>
-                {t("chatRoom")}
-              </ThemedText>
-            )}
+            ) : null}
           </View>
+        }
+        ListEmptyComponent={
+          hasClinicCode ? (
+            <View style={styles.emptyChat}>
+              <Feather name="message-circle" size={48} color={theme.textSecondary} />
+              <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.md, textAlign: "center" }}>
+                {language === "ar" ? "ابدأ محادثة مع طبيبك" : "Start a conversation with your doctor"}
+              </ThemedText>
+            </View>
+          ) : (
+            <View style={styles.emptyChat}>
+              <View style={[styles.lockIcon, { backgroundColor: SaleemColors.warning + "20" }]}>
+                <Feather name="lock" size={32} color={SaleemColors.warning} />
+              </View>
+              <ThemedText type="h4" style={{ marginTop: Spacing.lg, textAlign: "center" }}>
+                {language === "ar" ? "أدخل رمز الطبيب" : "Enter Doctor Code"}
+              </ThemedText>
+              <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.sm }}>
+                {language === "ar" 
+                  ? "احصل على رمز العيادة من طبيبك لبدء المحادثة" 
+                  : "Get the clinic code from your doctor to start chatting"}
+              </ThemedText>
+              <Button
+                onPress={() => setShowCodeModal(true)}
+                variant="primary"
+                style={{ marginTop: Spacing.xl }}
+              >
+                {language === "ar" ? "إدخال الرمز" : "Enter Code"}
+              </Button>
+            </View>
+          )
         }
         onContentSizeChange={() => {
           if (user.messages.length > 0) {
@@ -184,152 +225,114 @@ export default function MessagesScreen() {
         }}
       />
 
-      {showSymptomLogger && selectedOrgan ? (
-        <SymptomLoggerModal
-          organ={selectedOrgan}
-          onClose={() => {
-            setShowSymptomLogger(false);
-            setSelectedOrgan(undefined);
-          }}
-          onSubmit={handleLogSymptom}
-          theme={theme}
-          language={language}
-          isRTL={isRTL}
-          t={t}
-        />
-      ) : null}
-
-      <View 
-        style={[
-          styles.inputContainer, 
-          { 
-            backgroundColor: theme.backgroundRoot,
-            paddingBottom: tabBarHeight + Spacing.sm,
-            borderTopColor: theme.border,
-          },
-        ]}
-      >
+      {hasClinicCode ? (
         <View 
           style={[
-            styles.inputRow,
-            { backgroundColor: theme.backgroundSecondary },
+            styles.inputContainer, 
+            { 
+              backgroundColor: theme.backgroundRoot,
+              paddingBottom: tabBarHeight + Spacing.sm,
+              borderTopColor: theme.border,
+            },
           ]}
         >
-          <TextInput
+          <View 
             style={[
-              styles.input,
-              { color: theme.text, textAlign: isRTL ? "right" : "left" },
-            ]}
-            placeholder={t("typeMessage")}
-            placeholderTextColor={theme.textSecondary}
-            value={messageText}
-            onChangeText={setMessageText}
-            editable={chatUnlocked}
-            multiline
-          />
-          <Pressable
-            onPress={handleSendMessage}
-            disabled={!chatUnlocked || !messageText.trim()}
-            style={[
-              styles.sendButton,
-              { backgroundColor: SaleemColors.accent, opacity: chatUnlocked && messageText.trim() ? 1 : 0.5 },
+              styles.inputRow,
+              { backgroundColor: theme.cardBackground },
             ]}
           >
-            <Feather name="send" size={20} color="#FFFFFF" />
-          </Pressable>
-        </View>
-      </View>
-    </KeyboardAvoidingView>
-  );
-}
-
-function SymptomLoggerModal({ 
-  organ, 
-  onClose, 
-  onSubmit,
-  theme,
-  language,
-  isRTL,
-  t,
-}: {
-  organ: string;
-  onClose: () => void;
-  onSubmit: (severity: number, description: string) => void;
-  theme: any;
-  language: string;
-  isRTL: boolean;
-  t: (key: string) => string;
-}) {
-  const [severity, setSeverity] = useState(5);
-  const [description, setDescription] = useState("");
-
-  return (
-    <Animated.View 
-      entering={FadeIn.duration(200)}
-      style={[styles.symptomModal, { backgroundColor: theme.cardBackground }, Shadows.large]}
-    >
-      <View style={[styles.symptomHeader, isRTL && { flexDirection: "row-reverse" }]}>
-        <ThemedText type="h4">{organ.charAt(0).toUpperCase() + organ.slice(1)}</ThemedText>
-        <Pressable onPress={onClose}>
-          <Feather name="x" size={24} color={theme.text} />
-        </Pressable>
-      </View>
-      
-      <View style={styles.severityContainer}>
-        <ThemedText type="body" style={{ marginBottom: Spacing.sm }}>
-          {t("severity")}: {severity}/10
-        </ThemedText>
-        <View style={styles.severityButtons}>
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
-            <Pressable
-              key={num}
-              onPress={() => setSeverity(num)}
+            <TextInput
               style={[
-                styles.severityButton,
-                {
-                  backgroundColor: severity >= num 
-                    ? (num <= 3 ? SaleemColors.accent : num <= 6 ? SaleemColors.warning : SaleemColors.error)
-                    : theme.backgroundSecondary,
-                },
+                styles.input,
+                { color: theme.text, textAlign: isRTL ? "right" : "left" },
+              ]}
+              placeholder={language === "ar" ? "اكتب رسالة..." : "Type a message..."}
+              placeholderTextColor={theme.textSecondary}
+              value={messageText}
+              onChangeText={setMessageText}
+              multiline
+            />
+            <Pressable
+              onPress={handleSendMessage}
+              disabled={!messageText.trim()}
+              style={[
+                styles.sendButton,
+                { backgroundColor: SaleemColors.accent, opacity: messageText.trim() ? 1 : 0.5 },
               ]}
             >
-              <ThemedText 
-                type="caption" 
-                style={{ color: severity >= num ? "#FFFFFF" : theme.text }}
-              >
-                {num}
-              </ThemedText>
+              <Feather name="send" size={20} color="#FFFFFF" />
             </Pressable>
-          ))}
+          </View>
         </View>
-      </View>
-      
-      <TextInput
-        style={[
-          styles.descriptionInput,
-          { 
-            backgroundColor: theme.backgroundSecondary, 
-            color: theme.text,
-            textAlign: isRTL ? "right" : "left",
-          },
-        ]}
-        placeholder={language === "ar" ? "صف الأعراض..." : "Describe symptoms..."}
-        placeholderTextColor={theme.textSecondary}
-        value={description}
-        onChangeText={setDescription}
-        multiline
-        numberOfLines={3}
-      />
-      
-      <Pressable
-        onPress={() => onSubmit(severity, description)}
-        style={[styles.submitButton, { backgroundColor: SaleemColors.accent }]}
+      ) : null}
+
+      <Modal
+        visible={showCodeModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => hasClinicCode && setShowCodeModal(false)}
       >
-        <ThemedText type="button" style={{ color: "#FFFFFF" }}>
-          {t("submitSymptom")}
-        </ThemedText>
-      </Pressable>
-    </Animated.View>
+        <View style={[styles.modalContainer, { backgroundColor: theme.backgroundRoot }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+            {hasClinicCode ? (
+              <Pressable onPress={() => setShowCodeModal(false)}>
+                <ThemedText type="button" style={{ color: theme.textSecondary }}>
+                  {t("cancel")}
+                </ThemedText>
+              </Pressable>
+            ) : (
+              <View />
+            )}
+            <ThemedText type="h4">{t("clinicCode")}</ThemedText>
+            <View style={{ width: 60 }} />
+          </View>
+          
+          <View style={styles.modalContent}>
+            <View style={styles.codeIconContainer}>
+              <Feather name="key" size={48} color={SaleemColors.primary} />
+            </View>
+            
+            <ThemedText type="h3" style={{ textAlign: "center", marginTop: Spacing.xl }}>
+              {language === "ar" ? "أدخل رمز العيادة" : "Enter Clinic Code"}
+            </ThemedText>
+            
+            <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.sm }}>
+              {language === "ar" 
+                ? "احصل على هذا الرمز من طبيبك أو العيادة" 
+                : "Get this code from your doctor or clinic"}
+            </ThemedText>
+            
+            <TextInput
+              style={[
+                styles.codeInput,
+                { 
+                  backgroundColor: theme.cardBackground, 
+                  color: theme.text,
+                  borderColor: clinicCodeInput ? SaleemColors.accent : theme.border,
+                },
+              ]}
+              placeholder="ABC123"
+              placeholderTextColor={theme.textSecondary}
+              value={clinicCodeInput}
+              onChangeText={(text) => setClinicCodeInput(text.toUpperCase())}
+              autoCapitalize="characters"
+              maxLength={10}
+            />
+            
+            <Button
+              onPress={handleJoinClinic}
+              variant="primary"
+              size="large"
+              disabled={!clinicCodeInput.trim()}
+              style={{ marginTop: Spacing.xl }}
+            >
+              {t("joinClinic")}
+            </Button>
+          </View>
+        </View>
+      </Modal>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -337,25 +340,43 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  bodyMapSection: {
-    marginVertical: Spacing.xl,
-  },
-  lockedCard: {
+  clinicHeader: {
+    flexDirection: "row",
     alignItems: "center",
-    padding: Spacing.xl,
-    borderWidth: 2,
-    borderStyle: "dashed",
-    marginTop: Spacing.xl,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.sm,
+    marginTop: Spacing.md,
+    gap: Spacing.md,
+  },
+  changeButton: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
   },
   emptyChat: {
+    flex: 1,
     alignItems: "center",
-    paddingVertical: Spacing["3xl"],
+    justifyContent: "center",
+    paddingVertical: Spacing["5xl"],
+    paddingHorizontal: Spacing.xl,
+  },
+  lockIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: "center",
+    justifyContent: "center",
   },
   messageBubble: {
     maxWidth: "80%",
     padding: Spacing.md,
     borderRadius: BorderRadius.sm,
     marginBottom: Spacing.sm,
+  },
+  doctorLabel: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginBottom: Spacing.xs,
   },
   inputContainer: {
     paddingHorizontal: Spacing.lg,
@@ -383,46 +404,40 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  symptomModal: {
-    position: "absolute",
-    bottom: 120,
-    left: Spacing.lg,
-    right: Spacing.lg,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.lg,
+  modalContainer: {
+    flex: 1,
   },
-  symptomHeader: {
+  modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
   },
-  severityContainer: {
-    marginBottom: Spacing.lg,
-  },
-  severityButtons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  severityButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  modalContent: {
+    flex: 1,
+    padding: Spacing.xl,
     alignItems: "center",
     justifyContent: "center",
   },
-  descriptionInput: {
-    borderRadius: BorderRadius.xs,
-    padding: Spacing.md,
-    fontSize: 16,
-    minHeight: 80,
-    textAlignVertical: "top",
-    marginBottom: Spacing.lg,
+  codeIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: SaleemColors.primary + "15",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  submitButton: {
-    height: 48,
+  codeInput: {
+    width: "100%",
+    height: 60,
     borderRadius: BorderRadius.sm,
-    alignItems: "center",
-    justifyContent: "center",
+    paddingHorizontal: Spacing.xl,
+    fontSize: 24,
+    textAlign: "center",
+    letterSpacing: 4,
+    marginTop: Spacing.xl,
+    borderWidth: 2,
   },
 });

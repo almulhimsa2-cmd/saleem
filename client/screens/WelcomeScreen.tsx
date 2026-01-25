@@ -1,7 +1,8 @@
-import React from "react";
-import { View, StyleSheet, Image, Pressable } from "react-native";
+import React, { useState } from "react";
+import { View, StyleSheet, Image, Pressable, TextInput } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
   FadeInDown,
@@ -12,8 +13,10 @@ import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useUser } from "@/contexts/UserContext";
 import { Spacing, SaleemColors, BorderRadius } from "@/constants/theme";
 import { OnboardingStackParamList } from "@/navigation/OnboardingNavigator";
+import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type WelcomeScreenProps = {
   navigation: NativeStackNavigationProp<OnboardingStackParamList, "Welcome">;
@@ -21,15 +24,25 @@ type WelcomeScreenProps = {
 
 export default function WelcomeScreen({ navigation }: WelcomeScreenProps) {
   const insets = useSafeAreaInsets();
+  const rootNavigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { theme, isDark } = useTheme();
-  const { t, setLanguage, language } = useLanguage();
+  const { t, setLanguage, language, isRTL } = useLanguage();
+  const { updateUser } = useUser();
+  const [name, setName] = useState("");
 
   const handleLanguageSelect = (lang: "en" | "ar") => {
     setLanguage(lang);
   };
 
   const handleGetStarted = () => {
-    navigation.navigate("PDPLConsent");
+    if (name.trim()) {
+      updateUser({ name: name.trim() });
+      navigation.navigate("PDPLConsent");
+    }
+  };
+
+  const handleDoctorMode = () => {
+    rootNavigation.navigate("Doctor");
   };
 
   return (
@@ -39,40 +52,51 @@ export default function WelcomeScreen({ navigation }: WelcomeScreenProps) {
     >
       <Animated.View 
         entering={FadeInUp.delay(100).duration(600)}
-        style={styles.languageSelector}
+        style={styles.topRow}
       >
-        <Pressable
-          onPress={() => handleLanguageSelect("ar")}
-          style={[
-            styles.languageButton,
-            language === "ar" && { backgroundColor: SaleemColors.primary },
-          ]}
-        >
-          <ThemedText
-            type="button"
+        <View style={styles.languageSelector}>
+          <Pressable
+            onPress={() => handleLanguageSelect("ar")}
             style={[
-              styles.languageText,
-              language === "ar" && { color: "#FFFFFF" },
+              styles.languageButton,
+              language === "ar" && { backgroundColor: SaleemColors.primary },
             ]}
           >
-            العربية
-          </ThemedText>
-        </Pressable>
-        <Pressable
-          onPress={() => handleLanguageSelect("en")}
-          style={[
-            styles.languageButton,
-            language === "en" && { backgroundColor: SaleemColors.primary },
-          ]}
-        >
-          <ThemedText
-            type="button"
+            <ThemedText
+              type="button"
+              style={[
+                styles.languageText,
+                language === "ar" && { color: "#FFFFFF" },
+              ]}
+            >
+              العربية
+            </ThemedText>
+          </Pressable>
+          <Pressable
+            onPress={() => handleLanguageSelect("en")}
             style={[
-              styles.languageText,
-              language === "en" && { color: "#FFFFFF" },
+              styles.languageButton,
+              language === "en" && { backgroundColor: SaleemColors.primary },
             ]}
           >
-            English
+            <ThemedText
+              type="button"
+              style={[
+                styles.languageText,
+                language === "en" && { color: "#FFFFFF" },
+              ]}
+            >
+              English
+            </ThemedText>
+          </Pressable>
+        </View>
+        
+        <Pressable
+          onPress={handleDoctorMode}
+          style={[styles.doctorButton, { backgroundColor: SaleemColors.accent }]}
+        >
+          <ThemedText type="caption" style={{ color: "#FFFFFF" }}>
+            {language === "ar" ? "للأطباء" : "Doctors"}
           </ThemedText>
         </Pressable>
       </Animated.View>
@@ -107,8 +131,31 @@ export default function WelcomeScreen({ navigation }: WelcomeScreenProps) {
           {t("welcome")}
         </ThemedText>
         <ThemedText type="body" style={[styles.subtitle, { color: theme.textSecondary }]}>
-          {t("welcomeSubtitle")}
+          {language === "ar" ? "تواصل مع طبيبك بسهولة" : "Connect with your doctor easily"}
         </ThemedText>
+      </Animated.View>
+
+      <Animated.View 
+        entering={FadeInDown.delay(500).duration(600)}
+        style={styles.inputContainer}
+      >
+        <ThemedText type="small" style={[styles.inputLabel, { color: theme.textSecondary }]}>
+          {language === "ar" ? "الاسم (مطلوب)" : "Your Name (Required)"}
+        </ThemedText>
+        <TextInput
+          style={[
+            styles.nameInput,
+            {
+              backgroundColor: theme.cardBackground,
+              color: theme.text,
+              textAlign: isRTL ? "right" : "left",
+            },
+          ]}
+          placeholder={language === "ar" ? "أدخل اسمك" : "Enter your name"}
+          placeholderTextColor={theme.textSecondary}
+          value={name}
+          onChangeText={setName}
+        />
       </Animated.View>
 
       <Animated.View 
@@ -119,6 +166,7 @@ export default function WelcomeScreen({ navigation }: WelcomeScreenProps) {
           onPress={handleGetStarted}
           variant="primary"
           size="large"
+          disabled={!name.trim()}
           testID="button-get-started"
         >
           {t("getStarted")}
@@ -133,20 +181,29 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: Spacing.xl,
   },
-  languageSelector: {
+  topRow: {
     flexDirection: "row",
-    justifyContent: "center",
-    gap: Spacing.md,
+    justifyContent: "space-between",
+    alignItems: "center",
     marginTop: Spacing.xl,
   },
+  languageSelector: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
   languageButton: {
-    paddingHorizontal: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
     backgroundColor: "rgba(0,0,0,0.05)",
   },
   languageText: {
-    fontSize: 16,
+    fontSize: 14,
+  },
+  doctorButton: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
   },
   heroContainer: {
     flex: 1,
@@ -154,9 +211,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   imageContainer: {
-    width: 240,
-    height: 240,
-    marginBottom: Spacing.xl,
+    width: 160,
+    height: 160,
+    marginBottom: Spacing.lg,
   },
   heroImage: {
     width: "100%",
@@ -168,16 +225,16 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   title: {
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: "700",
   },
   titleArabic: {
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: "700",
   },
   textContainer: {
     alignItems: "center",
-    marginBottom: Spacing["3xl"],
+    marginBottom: Spacing.xl,
   },
   welcomeText: {
     textAlign: "center",
@@ -185,6 +242,18 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     textAlign: "center",
+  },
+  inputContainer: {
+    marginBottom: Spacing.xl,
+  },
+  inputLabel: {
+    marginBottom: Spacing.sm,
+  },
+  nameInput: {
+    height: 52,
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.lg,
+    fontSize: 16,
   },
   buttonContainer: {
     marginBottom: Spacing["2xl"],

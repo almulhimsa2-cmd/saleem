@@ -2,7 +2,7 @@ import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
-import { Platform, StyleSheet, View } from "react-native";
+import { Platform, StyleSheet } from "react-native";
 
 import HomeScreen from "@/screens/HomeScreen";
 import VaultScreen from "@/screens/VaultScreen";
@@ -16,8 +16,8 @@ import { SaleemColors } from "@/constants/theme";
 
 export type MainTabParamList = {
   HomeTab: undefined;
-  VaultTab: undefined;
   MessagesTab: undefined;
+  VaultTab: undefined;
   SettingsTab: undefined;
 };
 
@@ -25,12 +25,12 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 
 export default function MainTabNavigator() {
   const { theme, isDark } = useTheme();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const screenOptions = useScreenOptions();
 
   return (
     <Tab.Navigator
-      initialRouteName="HomeTab"
+      initialRouteName="MessagesTab"
       screenOptions={{
         tabBarActiveTintColor: SaleemColors.accent,
         tabBarInactiveTintColor: theme.tabIconDefault,
@@ -61,7 +61,18 @@ export default function MainTabNavigator() {
           title: t("home"),
           headerTitle: () => <HeaderTitle title={t("appName")} />,
           tabBarIcon: ({ color, size }) => (
-            <Feather name="home" size={size} color={color} />
+            <Feather name="user" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="MessagesTab"
+        component={MessagesScreen}
+        options={{
+          title: t("messages"),
+          headerTitle: language === "ar" ? "المحادثات" : "Chat",
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="message-circle" size={size} color={color} />
           ),
         }}
       />
@@ -73,17 +84,6 @@ export default function MainTabNavigator() {
           headerTitle: t("medicalVault"),
           tabBarIcon: ({ color, size }) => (
             <Feather name="folder" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="MessagesTab"
-        component={MessagesScreen}
-        options={{
-          title: t("messages"),
-          headerTitle: t("messages"),
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="message-circle" size={size} color={color} />
           ),
         }}
       />

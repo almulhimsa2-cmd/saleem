@@ -1,0 +1,359 @@
+import React, { useState, useEffect } from "react";
+import { View, StyleSheet, FlatList, Pressable, TextInput, Modal } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { RouteProp } from "@react-navigation/native";
+import { Feather } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import * as Clipboard from "expo-clipboard";
+import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
+
+import { ThemedText } from "@/components/ThemedText";
+import { Button } from "@/components/Button";
+import { Card } from "@/components/Card";
+import { Disclaimer } from "@/components/Disclaimer";
+import { useTheme } from "@/hooks/useTheme";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { Spacing, SaleemColors, BorderRadius, Shadows } from "@/constants/theme";
+import { DoctorStackParamList } from "@/navigation/DoctorNavigator";
+
+type DoctorDashboardScreenProps = {
+  navigation: NativeStackNavigationProp<DoctorStackParamList, "DoctorDashboard">;
+  route: RouteProp<DoctorStackParamList, "DoctorDashboard">;
+};
+
+interface Patient {
+  id: string;
+  name: string;
+  lastMessage: string;
+  timestamp: string;
+  unread: number;
+}
+
+const generateClinicCode = () => {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let code = "";
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+};
+
+export default function DoctorDashboardScreen({ navigation, route }: DoctorDashboardScreenProps) {
+  const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
+  const { language, isRTL } = useLanguage();
+  const { doctorName, specialty } = route.params;
+  
+  const [clinicCode, setClinicCode] = useState("");
+  const [showCodeModal, setShowCodeModal] = useState(false);
+  const [patients, setPatients] = useState<Patient[]>([
+    {
+      id: "1",
+      name: language === "ar" ? "محمد أحمد" : "Mohammed Ahmed",
+      lastMessage: language === "ar" ? "شكراً دكتور" : "Thank you doctor",
+      timestamp: "10:30 AM",
+      unread: 2,
+    },
+    {
+      id: "2",
+      name: language === "ar" ? "سارة علي" : "Sara Ali",
+      lastMessage: language === "ar" ? "متى الموعد القادم؟" : "When is the next appointment?",
+      timestamp: "Yesterday",
+      unread: 0,
+    },
+    {
+      id: "3",
+      name: language === "ar" ? "خالد محمود" : "Khaled Mahmoud",
+      lastMessage: language === "ar" ? "هل أحتاج فحوصات إضافية؟" : "Do I need additional tests?",
+      timestamp: "2 days ago",
+      unread: 1,
+    },
+  ]);
+
+  useEffect(() => {
+    setClinicCode(generateClinicCode());
+  }, []);
+
+  const handleGenerateCode = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const newCode = generateClinicCode();
+    setClinicCode(newCode);
+  };
+
+  const handleCopyCode = async () => {
+    await Clipboard.setStringAsync(clinicCode);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
+  const renderPatient = ({ item }: { item: Patient }) => (
+    <Animated.View entering={FadeIn.duration(300)}>
+      <Pressable
+        style={[styles.patientCard, { backgroundColor: theme.cardBackground }, Shadows.small]}
+        onPress={() => navigation.navigate("DoctorChat", { patientName: item.name, patientId: item.id })}
+      >
+        <View style={[styles.avatar, { backgroundColor: SaleemColors.primary + "20" }]}>
+          <ThemedText type="h4" style={{ color: SaleemColors.primary }}>
+            {item.name.charAt(0)}
+          </ThemedText>
+        </View>
+        
+        <View style={[styles.patientInfo, isRTL && { alignItems: "flex-end" }]}>
+          <ThemedText type="body" numberOfLines={1}>{item.name}</ThemedText>
+          <ThemedText type="caption" style={{ color: theme.textSecondary }} numberOfLines={1}>
+            {item.lastMessage}
+          </ThemedText>
+        </View>
+        
+        <View style={styles.patientMeta}>
+          <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+            {item.timestamp}
+          </ThemedText>
+          {item.unread > 0 ? (
+            <View style={[styles.unreadBadge, { backgroundColor: SaleemColors.accent }]}>
+              <ThemedText type="caption" style={{ color: "#FFFFFF" }}>
+                {item.unread}
+              </ThemedText>
+            </View>
+          ) : null}
+        </View>
+      </Pressable>
+    </Animated.View>
+  );
+
+  return (
+    <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+      <View style={[styles.header, { paddingTop: insets.top + Spacing.lg, backgroundColor: SaleemColors.primary }]}>
+        <View style={styles.headerContent}>
+          <View>
+            <ThemedText type="h2" style={{ color: "#FFFFFF" }}>
+              {language === "ar" ? `مرحباً، د. ${doctorName}` : `Hello, Dr. ${doctorName}`}
+            </ThemedText>
+            <ThemedText type="body" style={{ color: "rgba(255,255,255,0.8)" }}>
+              {specialty}
+            </ThemedText>
+          </View>
+          <Pressable
+            style={[styles.codeButton, { backgroundColor: "rgba(255,255,255,0.2)" }]}
+            onPress={() => setShowCodeModal(true)}
+          >
+            <Feather name="key" size={20} color="#FFFFFF" />
+          </Pressable>
+        </View>
+        
+        <Pressable
+          style={[styles.codeCard, { backgroundColor: "rgba(255,255,255,0.15)" }]}
+          onPress={() => setShowCodeModal(true)}
+        >
+          <View style={styles.codeLeft}>
+            <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.8)" }}>
+              {language === "ar" ? "رمز العيادة" : "Clinic Code"}
+            </ThemedText>
+            <ThemedText type="h3" style={{ color: "#FFFFFF", letterSpacing: 2 }}>
+              {clinicCode}
+            </ThemedText>
+          </View>
+          <Pressable onPress={handleCopyCode} style={styles.copyButton}>
+            <Feather name="copy" size={20} color="#FFFFFF" />
+          </Pressable>
+        </Pressable>
+      </View>
+
+      <FlatList
+        data={patients}
+        keyExtractor={(item) => item.id}
+        renderItem={renderPatient}
+        contentContainerStyle={{
+          padding: Spacing.lg,
+          paddingBottom: insets.bottom + Spacing.xl,
+        }}
+        ListHeaderComponent={
+          <View style={{ marginBottom: Spacing.lg }}>
+            <Disclaimer />
+            <ThemedText type="h4" style={[styles.sectionTitle, isRTL && { textAlign: "right" }]}>
+              {language === "ar" ? "المرضى" : "Patients"} ({patients.length})
+            </ThemedText>
+          </View>
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Feather name="users" size={48} color={theme.textSecondary} />
+            <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.md }}>
+              {language === "ar" ? "لا يوجد مرضى بعد" : "No patients yet"}
+            </ThemedText>
+            <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+              {language === "ar" ? "شارك رمز العيادة مع مرضاك" : "Share your clinic code with patients"}
+            </ThemedText>
+          </View>
+        }
+      />
+
+      <Modal
+        visible={showCodeModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowCodeModal(false)}
+      >
+        <View style={[styles.modalContainer, { backgroundColor: theme.backgroundRoot }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+            <Pressable onPress={() => setShowCodeModal(false)}>
+              <ThemedText type="button" style={{ color: theme.textSecondary }}>
+                {language === "ar" ? "إغلاق" : "Close"}
+              </ThemedText>
+            </Pressable>
+            <ThemedText type="h4">{language === "ar" ? "رمز العيادة" : "Clinic Code"}</ThemedText>
+            <View style={{ width: 60 }} />
+          </View>
+          
+          <View style={styles.modalContent}>
+            <View style={[styles.codeDisplay, { backgroundColor: SaleemColors.primary }]}>
+              <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.8)" }}>
+                {language === "ar" ? "رمزك الحالي" : "Your Current Code"}
+              </ThemedText>
+              <ThemedText type="h1" style={{ color: "#FFFFFF", letterSpacing: 6, marginTop: Spacing.md }}>
+                {clinicCode}
+              </ThemedText>
+            </View>
+            
+            <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.xl }}>
+              {language === "ar" 
+                ? "شارك هذا الرمز مع مرضاك للسماح لهم بالتواصل معك" 
+                : "Share this code with your patients to allow them to chat with you"}
+            </ThemedText>
+            
+            <View style={styles.modalButtons}>
+              <Button
+                onPress={handleCopyCode}
+                variant="primary"
+                size="large"
+                style={{ flex: 1 }}
+              >
+                <Feather name="copy" size={18} color="#FFFFFF" />
+                {"  "}
+                {language === "ar" ? "نسخ الرمز" : "Copy Code"}
+              </Button>
+            </View>
+            
+            <Pressable onPress={handleGenerateCode} style={styles.regenerateButton}>
+              <Feather name="refresh-cw" size={16} color={SaleemColors.primary} />
+              <ThemedText type="button" style={{ color: SaleemColors.primary }}>
+                {language === "ar" ? "إنشاء رمز جديد" : "Generate New Code"}
+              </ThemedText>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  header: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xl,
+    borderBottomLeftRadius: BorderRadius.xl,
+    borderBottomRightRadius: BorderRadius.xl,
+  },
+  headerContent: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: Spacing.lg,
+  },
+  codeButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  codeCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: Spacing.md,
+    borderRadius: BorderRadius.sm,
+  },
+  codeLeft: {
+    flex: 1,
+  },
+  copyButton: {
+    padding: Spacing.sm,
+  },
+  sectionTitle: {
+    marginTop: Spacing.lg,
+  },
+  patientCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.md,
+    borderRadius: BorderRadius.sm,
+    marginBottom: Spacing.sm,
+    gap: Spacing.md,
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  patientInfo: {
+    flex: 1,
+  },
+  patientMeta: {
+    alignItems: "flex-end",
+    gap: Spacing.xs,
+  },
+  unreadBadge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: Spacing.xs,
+  },
+  emptyState: {
+    alignItems: "center",
+    paddingVertical: Spacing["5xl"],
+  },
+  modalContainer: {
+    flex: 1,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+  },
+  modalContent: {
+    flex: 1,
+    padding: Spacing.xl,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  codeDisplay: {
+    width: "100%",
+    padding: Spacing.xl,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+  },
+  modalButtons: {
+    flexDirection: "row",
+    marginTop: Spacing.xl,
+    width: "100%",
+    gap: Spacing.md,
+  },
+  regenerateButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginTop: Spacing.xl,
+    padding: Spacing.md,
+  },
+});

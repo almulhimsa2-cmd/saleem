@@ -1,22 +1,21 @@
 import React, { useState, useCallback } from "react";
-import { View, StyleSheet, FlatList, RefreshControl } from "react-native";
+import { View, StyleSheet, ScrollView, RefreshControl, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useFocusEffect } from "@react-navigation/native";
+import { Feather } from "@expo/vector-icons";
 import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { Avatar } from "@/components/Avatar";
 import { Disclaimer } from "@/components/Disclaimer";
-import { ProgressStreak } from "@/components/ProgressStreak";
-import { InstructionCard } from "@/components/InstructionCard";
+import { HealthBadgeItem } from "@/components/HealthBadge";
 import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUser } from "@/contexts/UserContext";
-import { Spacing, SaleemColors } from "@/constants/theme";
-import { sampleInstructions, Instruction } from "@/data/instructions";
+import { Spacing, SaleemColors, BorderRadius } from "@/constants/theme";
+import { healthConditions } from "@/data/healthConditions";
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -24,40 +23,17 @@ export default function HomeScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
   const { t, isRTL, language } = useLanguage();
-  const { user, markInstructionsReviewed } = useUser();
+  const { user } = useUser();
   
-  const [instructions, setInstructions] = useState<Instruction[]>(sampleInstructions);
   const [refreshing, setRefreshing] = useState(false);
-
-  useFocusEffect(
-    useCallback(() => {
-      const today = new Date().toISOString().split("T")[0];
-      if (user.lastActiveDate !== today) {
-        setInstructions(sampleInstructions.map((i) => ({ ...i, completed: false })));
-      }
-    }, [user.lastActiveDate])
-  );
-
-  const handleInstructionComplete = (id: string) => {
-    setInstructions((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, completed: true } : i))
-    );
-    const allCompleted = instructions.every((i) => i.id === id || i.completed);
-    if (allCompleted) {
-      markInstructionsReviewed();
-    }
-  };
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 1000);
   }, []);
 
-  const completedCount = instructions.filter((i) => i.completed).length;
-  const progress = (completedCount / instructions.length) * 100;
-
   return (
-    <FlatList
+    <ScrollView
       style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
       contentContainerStyle={{
         paddingTop: headerHeight + Spacing.xl,
@@ -65,78 +41,143 @@ export default function HomeScreen() {
         paddingHorizontal: Spacing.lg,
       }}
       scrollIndicatorInsets={{ bottom: insets.bottom }}
-      data={instructions}
-      keyExtractor={(item) => item.id}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
-      ListHeaderComponent={
-        <View>
-          <Animated.View entering={FadeIn.duration(400)}>
-            <Disclaimer />
-          </Animated.View>
+    >
+      <Animated.View entering={FadeIn.duration(400)}>
+        <Disclaimer />
+      </Animated.View>
+      
+      <Animated.View 
+        entering={FadeInDown.delay(100).duration(500)}
+        style={styles.avatarSection}
+      >
+        <Avatar
+          height={user.height}
+          weight={user.weight}
+          badges={user.badges}
+          size="large"
+        />
+        <ThemedText type="h2" style={styles.welcomeText}>
+          {language === "ar" ? `مرحباً، ${user.name || ""}` : `Hello, ${user.name || ""}`}
+        </ThemedText>
+        {user.clinicCode ? (
+          <View style={[styles.clinicBadge, { backgroundColor: SaleemColors.accent + "20" }]}>
+            <Feather name="check-circle" size={16} color={SaleemColors.accent} />
+            <ThemedText type="small" style={{ color: SaleemColors.accent }}>
+              {language === "ar" ? "متصل بالعيادة" : "Connected to Clinic"}
+            </ThemedText>
+          </View>
+        ) : (
+          <View style={[styles.clinicBadge, { backgroundColor: SaleemColors.warning + "20" }]}>
+            <Feather name="alert-circle" size={16} color={SaleemColors.warning} />
+            <ThemedText type="small" style={{ color: SaleemColors.warning }}>
+              {language === "ar" ? "أدخل رمز الطبيب للدردشة" : "Enter doctor code to chat"}
+            </ThemedText>
+          </View>
+        )}
+      </Animated.View>
+
+      <Animated.View entering={FadeInDown.delay(200).duration(500)}>
+        <Card style={styles.profileCard}>
+          <View style={[styles.cardHeader, isRTL && { flexDirection: "row-reverse" }]}>
+            <ThemedText type="h4">
+              {language === "ar" ? "معلوماتي الصحية" : "My Health Profile"}
+            </ThemedText>
+            <Feather name="user" size={20} color={SaleemColors.primary} />
+          </View>
           
-          <Animated.View 
-            entering={FadeInDown.delay(100).duration(500)}
-            style={styles.avatarSection}
-          >
-            <Avatar
-              height={user.height}
-              weight={user.weight}
-              badges={user.badges}
-              size="large"
-            />
-            <ThemedText type="h3" style={styles.welcomeText}>
-              {language === "ar" ? "مرحباً بك" : "Welcome back"}
+          <View style={styles.infoRow}>
+            <View style={styles.infoItem}>
+              <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+                {t("height")}
+              </ThemedText>
+              <ThemedText type="h4">
+                {user.height > 0 ? `${user.height} ${t("cm")}` : "--"}
+              </ThemedText>
+            </View>
+            <View style={styles.infoItem}>
+              <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+                {t("weight")}
+              </ThemedText>
+              <ThemedText type="h4">
+                {user.weight > 0 ? `${user.weight} ${t("kg")}` : "--"}
+              </ThemedText>
+            </View>
+          </View>
+        </Card>
+      </Animated.View>
+
+      <Animated.View entering={FadeInDown.delay(300).duration(500)}>
+        <ThemedText 
+          type="h4" 
+          style={[styles.sectionTitle, isRTL && { textAlign: "right" }]}
+        >
+          {language === "ar" ? "حالاتي الصحية" : "My Health Conditions"}
+        </ThemedText>
+        
+        {user.badges.length > 0 ? (
+          <View style={styles.badgesList}>
+            {user.badges.map((badge) => (
+              <HealthBadgeItem
+                key={badge.id}
+                condition={{
+                  id: badge.id,
+                  name: badge.name,
+                  nameAr: badge.nameAr,
+                  organ: badge.organ,
+                  icon: badge.icon,
+                  category: "",
+                }}
+                selected
+                size="small"
+              />
+            ))}
+          </View>
+        ) : (
+          <View style={[styles.emptyBadges, { backgroundColor: theme.cardBackground }]}>
+            <Feather name="heart" size={32} color={theme.textSecondary} />
+            <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.sm }}>
+              {language === "ar" ? "لم تُضف حالات صحية بعد" : "No health conditions added yet"}
             </ThemedText>
-          </Animated.View>
-
-          <Animated.View entering={FadeInDown.delay(200).duration(500)}>
-            <Card style={styles.progressCard}>
-              <View style={[styles.progressHeader, isRTL && { flexDirection: "row-reverse" }]}>
-                <ThemedText type="h4">{t("activeQuest")}</ThemedText>
-                <ThemedText type="caption" style={{ color: SaleemColors.accent }}>
-                  {completedCount}/{instructions.length}
-                </ThemedText>
-              </View>
-              <View style={[styles.progressBar, { backgroundColor: theme.backgroundSecondary }]}>
-                <View 
-                  style={[
-                    styles.progressFill, 
-                    { 
-                      width: `${progress}%`,
-                      backgroundColor: SaleemColors.accent,
-                    },
-                  ]} 
-                />
-              </View>
-            </Card>
-          </Animated.View>
-
-          <Animated.View entering={FadeInDown.delay(300).duration(500)}>
-            <ProgressStreak days={user.streakDays} />
-          </Animated.View>
-
-          <Animated.View entering={FadeInDown.delay(400).duration(500)}>
-            <ThemedText 
-              type="h4" 
-              style={[styles.sectionTitle, isRTL && { textAlign: "right" }]}
-            >
-              {t("todayInstructions")}
+            <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+              {language === "ar" ? "يمكنك إضافتها من الإعدادات" : "You can add them from Settings"}
             </ThemedText>
-          </Animated.View>
-        </View>
-      }
-      renderItem={({ item, index }) => (
-        <Animated.View entering={FadeInDown.delay(500 + index * 100).duration(400)}>
-          <InstructionCard
-            instruction={item}
-            completed={item.completed}
-            onComplete={() => handleInstructionComplete(item.id)}
-          />
-        </Animated.View>
-      )}
-    />
+          </View>
+        )}
+      </Animated.View>
+
+      <Animated.View entering={FadeInDown.delay(400).duration(500)}>
+        <ThemedText 
+          type="h4" 
+          style={[styles.sectionTitle, isRTL && { textAlign: "right" }]}
+        >
+          {language === "ar" ? "أدويتي" : "My Medications"}
+        </ThemedText>
+        
+        {user.medications.length > 0 ? (
+          <View style={styles.medicationsList}>
+            {user.medications.map((med) => (
+              <View 
+                key={med.id}
+                style={[styles.medicationItem, { backgroundColor: theme.cardBackground }]}
+              >
+                <Feather name="circle" size={16} color={SaleemColors.accent} />
+                <ThemedText type="body">{med.name}</ThemedText>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View style={[styles.emptyBadges, { backgroundColor: theme.cardBackground }]}>
+            <Feather name="package" size={32} color={theme.textSecondary} />
+            <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.sm }}>
+              {language === "ar" ? "لم تُضف أدوية بعد" : "No medications added yet"}
+            </ThemedText>
+          </View>
+        )}
+      </Animated.View>
+    </ScrollView>
   );
 }
 
@@ -151,26 +192,51 @@ const styles = StyleSheet.create({
   welcomeText: {
     marginTop: Spacing.lg,
   },
-  progressCard: {
+  clinicBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+    marginTop: Spacing.sm,
+  },
+  profileCard: {
     marginBottom: Spacing.lg,
   },
-  progressHeader: {
+  cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.md,
   },
-  progressBar: {
-    height: 8,
-    borderRadius: 4,
-    overflow: "hidden",
+  infoRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
   },
-  progressFill: {
-    height: "100%",
-    borderRadius: 4,
+  infoItem: {
+    alignItems: "center",
   },
   sectionTitle: {
     marginTop: Spacing.lg,
     marginBottom: Spacing.md,
+  },
+  badgesList: {
+    gap: Spacing.sm,
+  },
+  emptyBadges: {
+    alignItems: "center",
+    padding: Spacing.xl,
+    borderRadius: BorderRadius.sm,
+  },
+  medicationsList: {
+    gap: Spacing.sm,
+  },
+  medicationItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.xs,
   },
 });
