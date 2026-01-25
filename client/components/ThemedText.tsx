@@ -2,11 +2,12 @@ import { Text, type TextProps } from "react-native";
 
 import { useTheme } from "@/hooks/useTheme";
 import { Typography } from "@/constants/theme";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export type ThemedTextProps = TextProps & {
   lightColor?: string;
   darkColor?: string;
-  type?: "h1" | "h2" | "h3" | "h4" | "body" | "small" | "link";
+  type?: "h1" | "h2" | "h3" | "h4" | "body" | "small" | "link" | "button" | "caption";
 };
 
 export function ThemedText({
@@ -17,6 +18,7 @@ export function ThemedText({
   ...rest
 }: ThemedTextProps) {
   const { theme, isDark } = useTheme();
+  const { isRTL } = useLanguage();
 
   const getColor = () => {
     if (isDark && darkColor) {
@@ -50,12 +52,24 @@ export function ThemedText({
         return Typography.small;
       case "link":
         return Typography.link;
+      case "button":
+        return Typography.button;
+      case "caption":
+        return Typography.caption;
       default:
         return Typography.body;
     }
   };
 
   return (
-    <Text style={[{ color: getColor() }, getTypeStyle(), style]} {...rest} />
+    <Text 
+      style={[
+        { color: getColor() }, 
+        getTypeStyle(), 
+        isRTL ? { textAlign: "right" } : undefined,
+        style
+      ]} 
+      {...rest} 
+    />
   );
 }

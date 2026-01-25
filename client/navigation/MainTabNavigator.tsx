@@ -2,26 +2,37 @@ import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
-import { Platform, StyleSheet } from "react-native";
-import HomeStackNavigator from "@/navigation/HomeStackNavigator";
-import ProfileStackNavigator from "@/navigation/ProfileStackNavigator";
+import { Platform, StyleSheet, View } from "react-native";
+
+import HomeScreen from "@/screens/HomeScreen";
+import VaultScreen from "@/screens/VaultScreen";
+import MessagesScreen from "@/screens/MessagesScreen";
+import SettingsScreen from "@/screens/SettingsScreen";
+import { HeaderTitle } from "@/components/HeaderTitle";
 import { useTheme } from "@/hooks/useTheme";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useScreenOptions } from "@/hooks/useScreenOptions";
+import { SaleemColors } from "@/constants/theme";
 
 export type MainTabParamList = {
   HomeTab: undefined;
-  ProfileTab: undefined;
+  VaultTab: undefined;
+  MessagesTab: undefined;
+  SettingsTab: undefined;
 };
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
 export default function MainTabNavigator() {
   const { theme, isDark } = useTheme();
+  const { t } = useLanguage();
+  const screenOptions = useScreenOptions();
 
   return (
     <Tab.Navigator
       initialRouteName="HomeTab"
       screenOptions={{
-        tabBarActiveTintColor: theme.tabIconSelected,
+        tabBarActiveTintColor: SaleemColors.accent,
         tabBarInactiveTintColor: theme.tabIconDefault,
         tabBarStyle: {
           position: "absolute",
@@ -40,26 +51,50 @@ export default function MainTabNavigator() {
               style={StyleSheet.absoluteFill}
             />
           ) : null,
-        headerShown: false,
+        ...screenOptions,
       }}
     >
       <Tab.Screen
         name="HomeTab"
-        component={HomeStackNavigator}
+        component={HomeScreen}
         options={{
-          title: "Home",
+          title: t("home"),
+          headerTitle: () => <HeaderTitle title={t("appName")} />,
           tabBarIcon: ({ color, size }) => (
             <Feather name="home" size={size} color={color} />
           ),
         }}
       />
       <Tab.Screen
-        name="ProfileTab"
-        component={ProfileStackNavigator}
+        name="VaultTab"
+        component={VaultScreen}
         options={{
-          title: "Profile",
+          title: t("vault"),
+          headerTitle: t("medicalVault"),
           tabBarIcon: ({ color, size }) => (
-            <Feather name="user" size={size} color={color} />
+            <Feather name="folder" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="MessagesTab"
+        component={MessagesScreen}
+        options={{
+          title: t("messages"),
+          headerTitle: t("messages"),
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="message-circle" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="SettingsTab"
+        component={SettingsScreen}
+        options={{
+          title: t("settings"),
+          headerTitle: t("settings"),
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="settings" size={size} color={color} />
           ),
         }}
       />
