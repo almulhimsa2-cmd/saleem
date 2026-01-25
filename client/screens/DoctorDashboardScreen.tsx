@@ -28,6 +28,7 @@ interface Patient {
   lastMessage: string;
   timestamp: string;
   unread: number;
+  notes?: string;
 }
 
 const generateClinicCode = () => {
@@ -48,6 +49,9 @@ export default function DoctorDashboardScreen({ navigation, route }: DoctorDashb
   const [clinicCode, setClinicCode] = useState("");
   const [customCodeInput, setCustomCodeInput] = useState("");
   const [showCodeModal, setShowCodeModal] = useState(false);
+  const [showNotesModal, setShowNotesModal] = useState(false);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [notesInput, setNotesInput] = useState("");
   const [patients, setPatients] = useState<Patient[]>([
     {
       id: "1",
@@ -55,6 +59,7 @@ export default function DoctorDashboardScreen({ navigation, route }: DoctorDashb
       lastMessage: language === "ar" ? "شكراً دكتور" : "Thank you doctor",
       timestamp: "10:30 AM",
       unread: 2,
+      notes: "",
     },
     {
       id: "2",
@@ -62,6 +67,7 @@ export default function DoctorDashboardScreen({ navigation, route }: DoctorDashb
       lastMessage: language === "ar" ? "متى الموعد القادم؟" : "When is the next appointment?",
       timestamp: "Yesterday",
       unread: 0,
+      notes: "",
     },
     {
       id: "3",
@@ -69,6 +75,7 @@ export default function DoctorDashboardScreen({ navigation, route }: DoctorDashb
       lastMessage: language === "ar" ? "هل أحتاج فحوصات إضافية؟" : "Do I need additional tests?",
       timestamp: "2 days ago",
       unread: 1,
+      notes: "",
     },
   ]);
 
@@ -96,38 +103,80 @@ export default function DoctorDashboardScreen({ navigation, route }: DoctorDashb
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
+  const handleLogout = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    navigation.replace("DoctorLogin");
+  };
+
+  const handleOpenNotes = (patient: Patient) => {
+    setSelectedPatient(patient);
+    setNotesInput(patient.notes || "");
+    setShowNotesModal(true);
+  };
+
+  const handleSaveNotes = () => {
+    if (selectedPatient) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setPatients((prev) =>
+        prev.map((p) =>
+          p.id === selectedPatient.id ? { ...p, notes: notesInput } : p
+        )
+      );
+      setShowNotesModal(false);
+      setSelectedPatient(null);
+      setNotesInput("");
+    }
+  };
+
   const renderPatient = ({ item }: { item: Patient }) => (
     <Animated.View entering={FadeIn.duration(300)}>
-      <Pressable
-        style={[styles.patientCard, { backgroundColor: theme.cardBackground }, Shadows.small]}
-        onPress={() => navigation.navigate("DoctorChat", { patientName: item.name, patientId: item.id })}
-      >
-        <View style={[styles.avatar, { backgroundColor: SaleemColors.primary + "20" }]}>
-          <ThemedText type="h4" style={{ color: SaleemColors.primary }}>
-            {item.name.charAt(0)}
-          </ThemedText>
-        </View>
+      <View style={[styles.patientCard, { backgroundColor: theme.cardBackground }, Shadows.small]}>
+        <Pressable
+          style={styles.patientMainContent}
+          onPress={() => navigation.navigate("DoctorChat", { patientName: item.name, patientId: item.id })}
+        >
+          <View style={[styles.avatar, { backgroundColor: SaleemColors.primary + "20" }]}>
+            <ThemedText type="h4" style={{ color: SaleemColors.primary }}>
+              {item.name.charAt(0)}
+            </ThemedText>
+          </View>
+          
+          <View style={[styles.patientInfo, isRTL && { alignItems: "flex-end" }]}>
+            <ThemedText type="body" numberOfLines={1}>{item.name}</ThemedText>
+            <ThemedText type="caption" style={{ color: theme.textSecondary }} numberOfLines={1}>
+              {item.lastMessage}
+            </ThemedText>
+            {item.notes ? (
+              <View style={styles.notesIndicator}>
+                <Feather name="file-text" size={10} color={SaleemColors.accent} />
+                <ThemedText type="caption" style={{ color: SaleemColors.accent, fontSize: 10 }} numberOfLines={1}>
+                  {language === "ar" ? "ملاحظات" : "Notes"}
+                </ThemedText>
+              </View>
+            ) : null}
+          </View>
+          
+          <View style={styles.patientMeta}>
+            <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+              {item.timestamp}
+            </ThemedText>
+            {item.unread > 0 ? (
+              <View style={[styles.unreadBadge, { backgroundColor: SaleemColors.accent }]}>
+                <ThemedText type="caption" style={{ color: "#FFFFFF" }}>
+                  {item.unread}
+                </ThemedText>
+              </View>
+            ) : null}
+          </View>
+        </Pressable>
         
-        <View style={[styles.patientInfo, isRTL && { alignItems: "flex-end" }]}>
-          <ThemedText type="body" numberOfLines={1}>{item.name}</ThemedText>
-          <ThemedText type="caption" style={{ color: theme.textSecondary }} numberOfLines={1}>
-            {item.lastMessage}
-          </ThemedText>
-        </View>
-        
-        <View style={styles.patientMeta}>
-          <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-            {item.timestamp}
-          </ThemedText>
-          {item.unread > 0 ? (
-            <View style={[styles.unreadBadge, { backgroundColor: SaleemColors.accent }]}>
-              <ThemedText type="caption" style={{ color: "#FFFFFF" }}>
-                {item.unread}
-              </ThemedText>
-            </View>
-          ) : null}
-        </View>
-      </Pressable>
+        <Pressable
+          style={[styles.notesButton, { backgroundColor: item.notes ? SaleemColors.accent + "20" : theme.backgroundSecondary }]}
+          onPress={() => handleOpenNotes(item)}
+        >
+          <Feather name="edit-3" size={16} color={item.notes ? SaleemColors.accent : theme.textSecondary} />
+        </Pressable>
+      </View>
     </Animated.View>
   );
 
@@ -135,7 +184,7 @@ export default function DoctorDashboardScreen({ navigation, route }: DoctorDashb
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       <View style={[styles.header, { paddingTop: insets.top + Spacing.lg, backgroundColor: SaleemColors.primary }]}>
         <View style={styles.headerContent}>
-          <View>
+          <View style={{ flex: 1 }}>
             <ThemedText type="h2" style={{ color: "#FFFFFF" }}>
               {language === "ar" ? `مرحباً، د. ${doctorName}` : `Hello, Dr. ${doctorName}`}
             </ThemedText>
@@ -143,12 +192,24 @@ export default function DoctorDashboardScreen({ navigation, route }: DoctorDashb
               {specialty}
             </ThemedText>
           </View>
-          <Pressable
-            style={[styles.codeButton, { backgroundColor: "rgba(255,255,255,0.2)" }]}
-            onPress={() => setShowCodeModal(true)}
-          >
-            <Feather name="key" size={20} color="#FFFFFF" />
-          </Pressable>
+          <View style={styles.headerButtons}>
+            <Pressable
+              style={[styles.codeButton, { backgroundColor: "rgba(255,255,255,0.2)" }]}
+              onPress={() => setShowCodeModal(true)}
+              testID="button-clinic-code"
+              accessibilityLabel="Clinic Code"
+            >
+              <Feather name="key" size={20} color="#FFFFFF" />
+            </Pressable>
+            <Pressable
+              style={[styles.codeButton, { backgroundColor: "rgba(255,255,255,0.2)" }]}
+              onPress={handleLogout}
+              testID="button-logout"
+              accessibilityLabel="Logout"
+            >
+              <Feather name="log-out" size={20} color="#FFFFFF" />
+            </Pressable>
+          </View>
         </View>
         
         <Pressable
@@ -296,6 +357,68 @@ export default function DoctorDashboardScreen({ navigation, route }: DoctorDashb
           </View>
         </View>
       </Modal>
+
+      <Modal
+        visible={showNotesModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowNotesModal(false)}
+      >
+        <View style={[styles.modalContainer, { backgroundColor: theme.backgroundRoot }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+            <Pressable onPress={() => setShowNotesModal(false)}>
+              <ThemedText type="button" style={{ color: theme.textSecondary }}>
+                {language === "ar" ? "إلغاء" : "Cancel"}
+              </ThemedText>
+            </Pressable>
+            <ThemedText type="h4">
+              {language === "ar" ? "ملاحظات المريض" : "Patient Notes"}
+            </ThemedText>
+            <Pressable onPress={handleSaveNotes}>
+              <ThemedText type="button" style={{ color: SaleemColors.accent }}>
+                {language === "ar" ? "حفظ" : "Save"}
+              </ThemedText>
+            </Pressable>
+          </View>
+          
+          <View style={styles.notesModalContent}>
+            {selectedPatient ? (
+              <>
+                <View style={styles.patientHeader}>
+                  <View style={[styles.avatar, { backgroundColor: SaleemColors.primary + "20" }]}>
+                    <ThemedText type="h4" style={{ color: SaleemColors.primary }}>
+                      {selectedPatient.name.charAt(0)}
+                    </ThemedText>
+                  </View>
+                  <ThemedText type="h3">{selectedPatient.name}</ThemedText>
+                </View>
+                
+                <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: Spacing.sm }}>
+                  {language === "ar" ? "اكتب ملاحظاتك عن هذا المريض" : "Write your notes about this patient"}
+                </ThemedText>
+                
+                <TextInput
+                  style={[
+                    styles.notesTextArea,
+                    { 
+                      backgroundColor: theme.cardBackground, 
+                      color: theme.text,
+                      textAlign: isRTL ? "right" : "left",
+                    },
+                  ]}
+                  placeholder={language === "ar" ? "ملاحظات طبية، تاريخ المرض، تعليمات خاصة..." : "Medical notes, history, special instructions..."}
+                  placeholderTextColor={theme.textSecondary}
+                  value={notesInput}
+                  onChangeText={setNotesInput}
+                  multiline
+                  numberOfLines={8}
+                  textAlignVertical="top"
+                />
+              </>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -315,6 +438,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "flex-start",
     marginBottom: Spacing.lg,
+  },
+  headerButtons: {
+    flexDirection: "row",
+    gap: Spacing.sm,
   },
   codeButton: {
     width: 44,
@@ -345,7 +472,26 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderRadius: BorderRadius.sm,
     marginBottom: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  patientMainContent: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.md,
+  },
+  notesButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  notesIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 2,
   },
   avatar: {
     width: 48,
@@ -437,5 +583,23 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
     alignItems: "center",
     justifyContent: "center",
+  },
+  notesModalContent: {
+    flex: 1,
+    padding: Spacing.xl,
+  },
+  patientHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    marginBottom: Spacing.xl,
+  },
+  notesTextArea: {
+    flex: 1,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.lg,
+    fontSize: 16,
+    lineHeight: 24,
+    minHeight: 200,
   },
 });
