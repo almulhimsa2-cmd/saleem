@@ -1,0 +1,44 @@
+Project Name: Saleem (سليم)
+Concept: A multi-specialty, gamified patient-doctor portal (iphone app) that transforms medical history and post-op care into an interactive "Quest" while maintaining high Saudi PDPL security standards.support arabic/english 
+
+1. Visual Identity & UI/UX
+Colors: Medical Navy (#003366) and Healing Emerald (#50C878).
+Font: 'Cairo' (Google Fonts).
+Layout: RTL (Arabic) primary, LTR (English) secondary.
+The Avatar: A dynamic human silhouette that updates visually as the user adds data.
+
+2. Feature Breakdown (The Build List)
+A. Gamified Onboarding (The "Health Hero" Creation)
+Explicit Consent: A mandatory, non-pre-ticked popup explaining data usage in KSA.
+Avatar Setup: Users input height/weight; the avatar scales accordingly.
+The Medicine Cabinet: A drag-and-drop interface where patients place icons of their current meds (Pills, Sprays, Inhalers) into a virtual shelf.
+The Badge System: A smart-search bar (using a library of 200+ diseases) where patients select chronic conditions (Diabetes, Hypertension, etc.). These appear as "Badges" on the avatar’s specific organs.
+B. Multi-Specialty Interaction (Field by Field)
+Modular Content: The app skeleton is the same, but the "Games" and "Instructions" change based on the Doctor’s Specialty Code (ENT, Peds, OBGYN, Optha).
+Instruction Sources: All text/games must be derived from NHS (UK) or MedlinePlus (US Gov).
+Interactive Games:
+ENT: Nasal Wash master (click-to-clean).
+Peds: Growth Milestone badges.
+OBGYN: Fetal Kick-Tap rhythm tracker.
+C. The Medical Vault & OCR
+File Uploads: Secure storage for Lab PDFs and Radiology JPGs/DICOMs.
+OCR Placeholder: A Python function to "read" uploaded lab screenshots (like from Al Habib app) and suggest "Badges" or "Meds" based on detected text.
+Privacy Vault: Patients can "lock" or "unlock" specific files for their doctor to see.
+D. Communication Hub
+Symptom Body-Map: An SVG silhouette where patients tap an organ (Ear, Eye, Throat) to log a symptom.
+Hybrid Chat: A secure messaging room that unlocks after the patient reviews their daily recovery instructions. Includes voice note support.
+
+3. Technical Architecture (For Replit AI)
+Copy and paste this specific block into Replit next week:
+"Build a full-stack Flask application called 'Saleem'.
+Database: Use SQLite with tables for Doctors, Patients, Medical_Badges, Medications, and Secure_Messages.
+Auth: Create a multi-tenant system where Doctors generate a 'Clinic Code' and Patients join via that code.
+Frontend: Use Tailwind CSS for a mobile-first, RTL-supported UI. Use the 'Cairo' font.
+Logic: > - Create a 'Game Module' that renders different JavaScript mini-games based on the doctor's specialty.
+Build an SVG-based Body Map for symptom reporting.
+Implement an upload system that renames files to UUIDs for PDPL compliance.
+Content Engine: All educational strings should be stored in a JSON file, mapped to NHS/US-Gov URLs."
+
+4. Safety & Compliance Rules
+No Emergencies: Clear disclaimer that the app is for education/communication, not life-saving.
+PDPL Ready: Include a "Delete My Data" button in settings that purges the DB of all user-uploaded files and badges.
