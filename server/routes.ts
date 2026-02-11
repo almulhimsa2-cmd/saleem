@@ -1,11 +1,549 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
+import { Server as SocketIOServer } from "socket.io";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import {
+  hashPassword, comparePasswords, generateToken, verifyToken,
+  authMiddleware, validatePassword,
+} from "./auth";
+import * as storage from "./storage";
+
+const upload = multer({
+  dest: "uploads/",
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ["image/jpeg", "image/png", "application/pdf"];
+    cb(null, allowed.includes(file.mimetype));
+  },
+});
+
+const uploadsDir = path.resolve(process.cwd(), "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // put application routes here
-  // prefix all routes with /api
+  app.use("/uploads", (req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    next();
+  }, require("express").static(uploadsDir));
 
+  // === DOCTOR AUTH ===
+  app.post("/api/doctors/register", async (req: Request, res: Response) => {
+    try {
+      const { email, password, nameEn, nameAr, phone, specialization, licenseNumber, licenseType } = req.body;
+      if (!email || !password || !nameEn) {
+        return res.status(400).json({ message: "Email, password, and name are required" });
+      }
+      const pwCheck = validatePassword(password);
+      if (!pwCheck.valid) {
+        return res.status(400).json({ message: "Password requirements not met", errors: pwCheck.errors });
+      }
+      const existing = await storage.getDoctorByEmail(email.toLowerCase());
+      if (existing) {
+        return res.status(409).json({ message: "Email already registered" });
+      }
+      const hashedPw = await hashPassword(password);
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      let clinicCode = "";
+      for (let i = 0; i < 6; i++) clinicCode += chars[Math.floor(Math.random() * chars.length)];
+
+      const doctor = await storage.createDoctor({
+        email: email.toLowerCase(),
+        password: hashedPw,
+        nameEn,
+        nameAr: nameAr || null,
+        phone: phone || null,
+        specialization: specialization || "General",
+        licenseNumber: licenseNumber || null,
+        licenseType: licenseType || null,
+      } as any);
+      await storage.updateDoctor(doctor.id, { clinicCode } as any);
+      const token = generateToken({ id: doctor.id, type: "doctor" });
+      const { password: _, ...doctorData } = doctor;
+      res.status(201).json({ token, doctor: { ...doctorData, clinicCode } });
+    } catch (error: any) {
+      console.error("Doctor register error:", error);
+      res.status(500).json({ message: "Registration failed" });
+    }
+  });
+
+  app.post("/api/doctors/login", async (req: Request, res: Response) => {
+    try {
+      const { email, password } = req.body;
+      if (!email || !password) {
+        return res.status(400).json({ message: "Email and password required" });
+      }
+      const doctor = await storage.getDoctorByEmail(email.toLowerCase());
+      if (!doctor) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+      const valid = await comparePasswords(password, doctor.password);
+      if (!valid) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+      const token = generateToken({ id: doctor.id, type: "doctor" });
+      const { password: _, ...doctorData } = doctor;
+      res.json({ token, doctor: doctorData });
+    } catch (error: any) {
+      console.error("Doctor login error:", error);
+      res.status(500).json({ message: "Login failed" });
+    }
+  });
+
+  app.get("/api/doctors/me", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const doctor = await storage.getDoctorById((req as any).userId);
+      if (!doctor) return res.status(404).json({ message: "Doctor not found" });
+      const { password: _, ...doctorData } = doctor;
+      res.json(doctorData);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get profile" });
+    }
+  });
+
+  app.put("/api/doctors/me", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const updates = req.body;
+      delete updates.password;
+      delete updates.email;
+      delete updates.id;
+      const doctor = await storage.updateDoctor((req as any).userId, updates);
+      if (!doctor) return res.status(404).json({ message: "Doctor not found" });
+      const { password: _, ...doctorData } = doctor;
+      res.json(doctorData);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
+  app.put("/api/doctors/clinic-code", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { code } = req.body;
+      if (!code || code.length < 3) {
+        return res.status(400).json({ message: "Code must be at least 3 characters" });
+      }
+      const existing = await storage.getDoctorByClinicCode(code);
+      if (existing && existing.id !== (req as any).userId) {
+        return res.status(409).json({ message: "Code already in use" });
+      }
+      const doctor = await storage.updateDoctor((req as any).userId, { clinicCode: code.toUpperCase() } as any);
+      res.json({ clinicCode: doctor?.clinicCode });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update code" });
+    }
+  });
+
+  // === PATIENT AUTH ===
+  app.post("/api/patients/register", async (req: Request, res: Response) => {
+    try {
+      const { email, password, fullName, phone } = req.body;
+      if (!email || !password || !fullName) {
+        return res.status(400).json({ message: "Email, password, and full name are required" });
+      }
+      const pwCheck = validatePassword(password);
+      if (!pwCheck.valid) {
+        return res.status(400).json({ message: "Password requirements not met", errors: pwCheck.errors });
+      }
+      const existing = await storage.getPatientByEmail(email.toLowerCase());
+      if (existing) {
+        return res.status(409).json({ message: "Email already registered" });
+      }
+      const hashedPw = await hashPassword(password);
+      const patient = await storage.createPatient({
+        email: email.toLowerCase(),
+        password: hashedPw,
+        fullName,
+        phone: phone || null,
+      } as any);
+      const token = generateToken({ id: patient.id, type: "patient" });
+      const { password: _, ...patientData } = patient;
+      res.status(201).json({ token, patient: patientData });
+    } catch (error: any) {
+      console.error("Patient register error:", error);
+      res.status(500).json({ message: "Registration failed" });
+    }
+  });
+
+  app.post("/api/patients/login", async (req: Request, res: Response) => {
+    try {
+      const { email, password } = req.body;
+      if (!email || !password) {
+        return res.status(400).json({ message: "Email and password required" });
+      }
+      const patient = await storage.getPatientByEmail(email.toLowerCase());
+      if (!patient) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+      const valid = await comparePasswords(password, patient.password);
+      if (!valid) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+      const token = generateToken({ id: patient.id, type: "patient" });
+      const { password: _, ...patientData } = patient;
+      res.json({ token, patient: patientData });
+    } catch (error: any) {
+      console.error("Patient login error:", error);
+      res.status(500).json({ message: "Login failed" });
+    }
+  });
+
+  app.get("/api/patients/me", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const patient = await storage.getPatientById((req as any).userId);
+      if (!patient) return res.status(404).json({ message: "Patient not found" });
+      const { password: _, ...patientData } = patient;
+      res.json(patientData);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get profile" });
+    }
+  });
+
+  app.put("/api/patients/me", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const updates = req.body;
+      delete updates.password;
+      delete updates.email;
+      delete updates.id;
+      const patient = await storage.updatePatient((req as any).userId, updates);
+      if (!patient) return res.status(404).json({ message: "Patient not found" });
+      const { password: _, ...patientData } = patient;
+      res.json(patientData);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
+  // === CHAT ROUTES ===
+  app.post("/api/chats/join", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { clinicCode } = req.body;
+      if (!clinicCode) {
+        return res.status(400).json({ message: "Clinic code required" });
+      }
+      const doctor = await storage.getDoctorByClinicCode(clinicCode);
+      if (!doctor) {
+        return res.status(404).json({ message: "Invalid clinic code" });
+      }
+      const blocked = await storage.isPatientBlocked(doctor.id, (req as any).userId);
+      if (blocked) {
+        return res.status(403).json({ message: "This doctor is not available for chat" });
+      }
+      const chat = await storage.createChat(doctor.id, (req as any).userId, clinicCode.toUpperCase());
+      res.json({ chat, doctorName: doctor.nameEn, doctorSpecialization: doctor.specialization });
+    } catch (error) {
+      console.error("Join chat error:", error);
+      res.status(500).json({ message: "Failed to join chat" });
+    }
+  });
+
+  app.get("/api/chats", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const userType = (req as any).userType;
+      const userId = (req as any).userId;
+      let chatList;
+      if (userType === "doctor") {
+        chatList = await storage.getChatsByDoctorId(userId);
+        const enrichedChats = [];
+        for (const chat of chatList) {
+          const lastMsg = await storage.getLastMessage(chat.id);
+          const notes = await storage.getDoctorNotes(userId, chat.patientId);
+          enrichedChats.push({
+            ...chat,
+            lastMessage: lastMsg?.text || "",
+            lastMessageAt: lastMsg?.createdAt || chat.createdAt,
+            hasNotes: !!notes?.notes,
+          });
+        }
+        res.json(enrichedChats);
+      } else {
+        chatList = await storage.getChatsByPatientId(userId);
+        const enrichedChats = [];
+        for (const chat of chatList) {
+          const lastMsg = await storage.getLastMessage(chat.id);
+          enrichedChats.push({
+            ...chat,
+            lastMessage: lastMsg?.text || "",
+            lastMessageAt: lastMsg?.createdAt || chat.createdAt,
+          });
+        }
+        res.json(enrichedChats);
+      }
+    } catch (error) {
+      console.error("Get chats error:", error);
+      res.status(500).json({ message: "Failed to get chats" });
+    }
+  });
+
+  app.get("/api/chats/:chatId/messages", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { chatId } = req.params;
+      const chat = await storage.getChatById(chatId);
+      if (!chat) return res.status(404).json({ message: "Chat not found" });
+      const userId = (req as any).userId;
+      if (chat.doctorId !== userId && chat.patientId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      const messageList = await storage.getMessagesByChatId(chatId);
+      await storage.markMessagesAsRead(chatId, (req as any).userType);
+      res.json(messageList);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get messages" });
+    }
+  });
+
+  app.post("/api/chats/:chatId/messages", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { chatId } = req.params;
+      const { text, messageType } = req.body;
+      const chat = await storage.getChatById(chatId);
+      if (!chat) return res.status(404).json({ message: "Chat not found" });
+      const userId = (req as any).userId;
+      const userType = (req as any).userType;
+      if (chat.doctorId !== userId && chat.patientId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      if (userType === "patient") {
+        const blocked = await storage.isPatientBlocked(chat.doctorId, userId);
+        if (blocked) {
+          return res.status(403).json({ message: "You are blocked from this chat" });
+        }
+      }
+      const message = await storage.createMessage({
+        chatId,
+        senderId: userId,
+        senderType: userType,
+        text: text || "",
+        messageType: messageType || "text",
+      });
+      res.status(201).json(message);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to send message" });
+    }
+  });
+
+  // === DOCTOR NOTES ===
+  app.get("/api/doctors/notes/:patientId", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const note = await storage.getDoctorNotes((req as any).userId, req.params.patientId);
+      res.json(note || { notes: "" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get notes" });
+    }
+  });
+
+  app.put("/api/doctors/notes/:patientId", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { notes } = req.body;
+      const note = await storage.saveDoctorNotes((req as any).userId, req.params.patientId, notes);
+      res.json(note);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to save notes" });
+    }
+  });
+
+  // === BLOCK ===
+  app.post("/api/doctors/block/:patientId", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      await storage.blockPatient((req as any).userId, req.params.patientId);
+      res.json({ message: "Patient blocked" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to block patient" });
+    }
+  });
+
+  app.post("/api/doctors/unblock/:patientId", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      await storage.unblockPatient((req as any).userId, req.params.patientId);
+      res.json({ message: "Patient unblocked" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to unblock patient" });
+    }
+  });
+
+  app.get("/api/doctors/blocked", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const doctor = await storage.getDoctorById((req as any).userId);
+      if (!doctor) return res.status(404).json({ message: "Doctor not found" });
+      const blockedIds = (doctor.blockedPatients as string[]) || [];
+      const blockedList = [];
+      for (const id of blockedIds) {
+        const patient = await storage.getPatientById(id);
+        if (patient) {
+          blockedList.push({ id: patient.id, fullName: patient.fullName, email: patient.email });
+        }
+      }
+      res.json(blockedList);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get blocked patients" });
+    }
+  });
+
+  // === VAULT ===
+  app.post("/api/vault/upload", authMiddleware, upload.single("file"), async (req: Request, res: Response) => {
+    try {
+      const file = req.file;
+      if (!file) return res.status(400).json({ message: "No file provided" });
+      const { type } = req.body;
+      if (!type || !["lab", "radiology"].includes(type)) {
+        return res.status(400).json({ message: "Type must be 'lab' or 'radiology'" });
+      }
+      const fileUrl = `/uploads/${file.filename}`;
+      const vaultFile = await storage.createVaultFile({
+        patientId: (req as any).userId,
+        type,
+        fileName: file.originalname,
+        fileUrl,
+        mimeType: file.mimetype,
+        fileSize: file.size,
+      });
+      res.status(201).json(vaultFile);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to upload file" });
+    }
+  });
+
+  app.get("/api/vault", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { type } = req.query;
+      const files = await storage.getVaultFiles((req as any).userId, type as string);
+      res.json(files);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get vault files" });
+    }
+  });
+
+  app.delete("/api/vault/:fileId", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      await storage.deleteVaultFile(req.params.fileId, (req as any).userId);
+      res.json({ message: "File deleted" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete file" });
+    }
+  });
+
+  // === DOCTOR PROFILE (PUBLIC) ===
+  app.get("/api/doctors/profile/:doctorId", async (req: Request, res: Response) => {
+    try {
+      const doctor = await storage.getDoctorById(req.params.doctorId);
+      if (!doctor) return res.status(404).json({ message: "Doctor not found" });
+      res.json({
+        id: doctor.id,
+        nameEn: doctor.nameEn,
+        nameAr: doctor.nameAr,
+        specialization: doctor.specialization,
+        bio: doctor.bio,
+        profilePictureUrl: doctor.profilePictureUrl,
+        youtubeLink: doctor.youtubeLink,
+        websiteLink: doctor.websiteLink,
+        verified: doctor.verified,
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get doctor profile" });
+    }
+  });
+
+  // === PROFILE PICTURE UPLOAD ===
+  app.post("/api/upload/profile-picture", authMiddleware, upload.single("file"), async (req: Request, res: Response) => {
+    try {
+      const file = req.file;
+      if (!file) return res.status(400).json({ message: "No file provided" });
+      const fileUrl = `/uploads/${file.filename}`;
+      const userType = (req as any).userType;
+      if (userType === "doctor") {
+        await storage.updateDoctor((req as any).userId, { profilePictureUrl: fileUrl } as any);
+      }
+      res.json({ url: fileUrl });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to upload picture" });
+    }
+  });
+
+  // === SOCKET.IO ===
   const httpServer = createServer(app);
+  const io = new SocketIOServer(httpServer, {
+    cors: {
+      origin: "*",
+      methods: ["GET", "POST"],
+    },
+  });
+
+  io.use((socket, next) => {
+    const token = socket.handshake.auth.token;
+    if (!token) return next(new Error("Authentication required"));
+    const payload = verifyToken(token);
+    if (!payload) return next(new Error("Invalid token"));
+    (socket as any).userId = payload.id;
+    (socket as any).userType = payload.type;
+    next();
+  });
+
+  io.on("connection", (socket) => {
+    const userId = (socket as any).userId;
+    const userType = (socket as any).userType;
+    console.log(`Socket connected: ${userType} ${userId}`);
+
+    socket.join(`user:${userId}`);
+
+    socket.on("join_chat", (chatId: string) => {
+      socket.join(`chat:${chatId}`);
+      console.log(`${userType} ${userId} joined chat:${chatId}`);
+    });
+
+    socket.on("leave_chat", (chatId: string) => {
+      socket.leave(`chat:${chatId}`);
+    });
+
+    socket.on("send_message", async (data: { chatId: string; text: string; messageType?: string }) => {
+      try {
+        const chat = await storage.getChatById(data.chatId);
+        if (!chat) return;
+        if (chat.doctorId !== userId && chat.patientId !== userId) return;
+        if (userType === "patient") {
+          const blocked = await storage.isPatientBlocked(chat.doctorId, userId);
+          if (blocked) {
+            socket.emit("error_message", { message: "You are blocked from this chat" });
+            return;
+          }
+        }
+        const message = await storage.createMessage({
+          chatId: data.chatId,
+          senderId: userId,
+          senderType: userType,
+          text: data.text,
+          messageType: data.messageType || "text",
+        });
+        io.to(`chat:${data.chatId}`).emit("new_message", message);
+        const otherUserId = chat.doctorId === userId ? chat.patientId : chat.doctorId;
+        io.to(`user:${otherUserId}`).emit("chat_update", {
+          chatId: data.chatId,
+          lastMessage: data.text,
+          lastMessageAt: message.createdAt,
+        });
+      } catch (error) {
+        console.error("Send message error:", error);
+      }
+    });
+
+    socket.on("mark_read", async (chatId: string) => {
+      try {
+        await storage.markMessagesAsRead(chatId, userType);
+        const chat = await storage.getChatById(chatId);
+        if (chat) {
+          const otherUserId = chat.doctorId === userId ? chat.patientId : chat.doctorId;
+          io.to(`user:${otherUserId}`).emit("messages_read", { chatId });
+        }
+      } catch (error) {
+        console.error("Mark read error:", error);
+      }
+    });
+
+    socket.on("disconnect", () => {
+      console.log(`Socket disconnected: ${userType} ${userId}`);
+    });
+  });
 
   return httpServer;
 }
