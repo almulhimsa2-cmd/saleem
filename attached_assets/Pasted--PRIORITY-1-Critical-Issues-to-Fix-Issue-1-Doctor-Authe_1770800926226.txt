@@ -1,0 +1,923 @@
+-
+
+## PRIORITY 1: Critical Issues to Fix
+
+### Issue 1: Doctor Authentication System
+**Current Problem:** 
+- Doctors enter their name and a code is generated each time
+- Creates duplicate accounts/sessions
+- Unclear authentication flow
+- Patients only need a name (no real authentication)
+
+**Required Solution:**
+- Implement proper doctor registration with:
+  - Email-based signup (send verification link to email)
+  - Password creation (strong password validation)
+  - One-time verification code via email (for security confirmation)
+  - Doctor profile verification (optional: license/credential validation)
+  
+- Implement doctor login with:
+  - Email + Password authentication
+  - "Remember me" option
+  - Password reset via email
+  - Session persistence (user stays logged in until logout)
+
+- Implement patient authentication with:
+  - Patient signup: Full name + Email + Password
+  - Patient login: Email + Password
+  - Remove simple name-only login
+  - Session persistence
+
+- Backend Requirements:
+  - Use proper authentication library (Firebase Auth, Auth0, or JWT with bcrypt hashing)
+  - Store user sessions securely
+  - Implement logout functionality
+  - Add "forgot password" flow
+
+---
+
+### Issue 2: Keyboard Hiding Text Input Field
+**Current Problem:**
+- Virtual keyboard on mobile overlaps or hides the message input box
+
+**Required Solution:**
+- Implement keyboard-aware scroll behavior:
+  - Detect keyboard show/hide events
+  - Automatically scroll chat to bottom when keyboard appears
+  - Adjust container height to prevent overlap
+  - Use `android:windowSoftInputMode="adjustResize"` or equivalent for your framework
+  
+- If using React/Web:
+  ```
+  - Use Intersection Observer or scroll-to-bottom library
+  - Add padding/margin when keyboard is active
+  - Consider using `position: fixed` for input with proper z-indexing
+  ```
+
+- If using Flutter/Native:
+  ```
+  - Wrap inputs in Scaffold with resizeToAvoidBottomInset: true
+  - Use FocusScope to manage focus
+  - Implement ScrollController to auto-scroll on keyboard
+  ```
+
+---
+
+### Issue 3: Chat Not Syncing Between Devices
+**Current Problem:**
+- Doctor shares code with patient
+- Patient uses code to start chat
+- Chat appears on patient's device but NOT on doctor's phone
+- Messages not synchronized in real-time
+
+**Required Solution:**
+- Implement real-time database synchronization:
+  - Use Firestore, Realtime Database, or Socket.io
+  - When patient initiates chat with code, create chat session in database
+  - Both doctor and patient subscribe to same chat room
+  - Implement message listener that updates both devices instantly
+  
+- Chat room structure (database):
+  ```
+  /chats/{chatId}
+    - chatCode: "ABC123" (unique code for this session)
+    - doctorId: "doctor_uid"
+    - patientId: "patient_uid"
+    - createdAt: timestamp
+    - lastMessage: timestamp
+    - participants: {doctorId, patientId}
+    
+  /chats/{chatId}/messages/{messageId}
+    - senderId: "user_uid"
+    - text: "message content"
+    - timestamp: ISO timestamp
+    - read: boolean
+  ```
+
+- Implementation:
+  - When doctor creates session: generate unique code, store in database with doctor's ID
+  - When patient enters code: look up session, add patient to chat, subscribe to messages
+  - Use real-time listeners on both ends to receive messages instantly
+  - Test on multiple devices simultaneously
+
+---
+
+## PRIORITY 2: Feature Implementations
+
+### Feature 4: Voice Notes
+**Requirements:**
+- Record audio messages (up to 2-5 minutes per message)
+- Play back audio with controls (play, pause, speed)
+- Show waveform visualization (optional but preferred)
+- Display recording duration
+- Allow sending as single message
+
+**Implementation Details:**
+- Use `react-microphone` / `recordrtc` (web) or platform native audio recorder
+- Store audio files in cloud storage (Firebase Storage, AWS S3, or Cloudinary)
+- Send voice message metadata (duration, file URL) in chat database
+- Add audio player UI in message bubble
+- Mobile optimization: ensure voice recording works on low bandwidth
+
+---
+
+### Feature 5: Doctor Profile & Home Page
+**Requirements:**
+- Doctor profile page with:
+  - Profile picture upload (allow image crop/resize)
+  - Introduction/Bio section (rich text editor, max 500 characters)
+  - Specialization/Credentials (dropdown or text field)
+  - Contact information (optional)
+  - Upload capability for:
+    - YouTube channel link
+    - Blog/Website link
+    - Certificates/Credentials (PDF or image)
+    - Educational materials (PDF, images, videos)
+
+- Doctor home page showing:
+  - Welcome message with doctor's name
+  - Count of active patient chats
+  - List of ongoing chats with patients (last message preview, timestamp)
+  - Quick actions button: "Edit Profile", "View Vault", "Settings"
+  - Unread messages badge
+
+**Database Structure:**
+```
+/doctors/{doctorId}
+  - name: string
+  - email: string
+  - profilePicture: URL string
+  - bio: string
+  - specialization: string
+  - credentials: [URLs]
+  - externalLinks: {
+      youtube: URL,
+      website: URL,
+      linkedin: URL
+    }
+  - createdAt: timestamp
+  - updatedAt: timestamp
+
+/doctors/{doctorId}/materials
+  - title: string
+  - type: "pdf" | "image" | "video"
+  - url: URL
+  - uploadedAt: timestamp
+```
+
+**UI Components:**
+- Profile edit page (form with image upload)
+- Profile view page (for patients to see doctor info before/during chat)
+- Home dashboard with chat list
+- Materials gallery (optional browsing by patients)
+
+---
+
+### Feature 6: Vault - Reports Only
+**Requirements:**
+- Patient can upload documents labeled as:
+  - Lab Reports (blood work, urinalysis, etc.)
+  - Radiology Reports (X-ray, CT, MRI, ultrasound results)
+  - Remove generic file upload
+  - Restrict file types: PDF, JPG, PNG only
+  - Max file size: 10MB per document
+
+- Vault display:
+  - Organized by document type (Lab / Radiology tabs)
+  - Each document shows:
+    - Upload date
+    - Document type
+    - File name
+    - Thumbnail preview (for images)
+    - Download button
+    - Share with doctor button
+
+- Doctor access:
+  - Can view patient's vault documents (if patient shares)
+  - Can request specific reports from patient
+  - Cannot delete patient documents
+
+**Database Structure:**
+```
+/patients/{patientId}/vault/{reportId}
+  - type: "lab" | "radiology"
+  - fileName: string
+  - fileUrl: URL
+  - uploadedAt: timestamp
+  - sharedWith: [doctorIds]
+  - mimeType: string
+  - fileSize: number
+```
+
+---
+
+### Feature 7: Doctor Block Functionality
+**Requirements:**
+- Allow doctors to block problematic patients
+- Blocked patient cannot:
+  - Send messages to doctor
+  - See doctor's profile
+  - Initiate new chats
+  - Access previous chat history (optional: show "blocked" message)
+
+- Doctor can:
+  - View list of blocked patients
+  - Unblock at any time
+  - Block/unblock from chat view or patient list
+
+**Implementation:**
+- Add `blockedPatients` array to doctor profile
+- When patient tries to message blocked doctor:
+  - Check if doctor's blockedPatients includes patient ID
+  - If blocked: show error "This doctor is not available for chat"
+  - Disable message input
+  - Show block status in chat header
+
+- UI Elements:
+  - Block button in chat header (three-dot menu)
+  - Confirmation dialog: "Are you sure? Patient won't be able to message you."
+  - Block confirmation message
+  - "Manage blocked patients" section in settings
+
+**Database Structure:**
+```
+/doctors/{doctorId}
+  - blockedPatients: [patientIds]
+  - blockHistory: [{
+      patientId: string,
+      blockedAt: timestamp,
+      reason: string (optional)
+    }]
+```
+
+---
+
+## TECHNICAL RECOMMENDATIONS
+
+### Frontend
+- Ensure all inputs have proper keyboard handling
+- Implement proper loading states
+- Add error boundaries for crashes
+- Use lazy loading for images (profile pictures, documents)
+- Implement image optimization (compress uploads)
+
+### Backend
+- Use database transactions for critical operations (chat creation, blocking)
+- Implement proper access control (doctors can't access other doctors' data)
+- Add rate limiting on message sending
+- Implement file virus scanning for uploads
+- Add data privacy compliance (HIPAA if in US)
+
+### Testing Checklist
+- ✅ Register doctor with email, receive verification email
+- ✅ Doctor login persists across app refresh
+- ✅ Patient registers with email and password
+- ✅ Patient initiates chat with doctor code
+- ✅ Messages appear on both devices in real-time
+- ✅ Keyboard doesn't hide input field on mobile
+- ✅ Voice recording works offline, uploads when connected
+- ✅ Doctor profile visible to patients
+- ✅ Vault shows only lab and radiology reports
+- ✅ Block functionality prevents patient messaging
+- ✅ Test on multiple browsers/devices simultaneously
+
+---
+
+## IMPLEMENTATION ORDER (Recommended)
+1. **Fix Issue 1** (Authentication) - Critical foundation
+2. **Fix Issue 3** (Chat sync) - Core functionality
+3. **Fix Issue 2** (Keyboard) - UX improvement
+4. **Feature 6** (Vault reports) - Data management
+5. **Feature 5** (Doctor profile) - User credibility
+6. **Feature 4** (Voice notes) - Communication enhancement
+7. **Feature 7** (Block) - Safety feature
+
+---
+
+## Deliverables
+- Working authentication system with email verification
+- Real-time synced chat across devices
+- Mobile-responsive UI without keyboard overlaps
+- Doctor profile with materials upload
+- Patient vault restricted to medical reports only
+- Voice messaging capability
+- Doctor blocking system with UI
+
+Must include:
+- This is NOT emergency care
+- Call 997 for emergencies
+- Not a substitute for in-person exam
+- No diagnosis guarantee
+- Doctor's responsibility
+- Patient's responsibility
+- Liability limitations
+
+1.1 Doctor Login System
+Doctor Signup Flow
+Screen 1: Doctor Registration Start
+Title: تسجيل طبيب جديد / Register as Doctor
+
+Form Fields:
+- Email: [_____________]
+  Validation: Valid email format, unique in database
+  
+- Password: [_____________]
+  Requirements:
+  ✓ At least 8 characters
+  ✓ At least 1 uppercase letter
+  ✓ At least 1 number
+  ✓ At least 1 special character (!@#$%^&*)
+  Show strength indicator (Weak/Fair/Good/Strong)
+  
+- Confirm Password: [_____________]
+  Validation: Must match password field
+  
+- Full Name (English): [_____________]
+
+- Full Name (Arabic): [_____________]
+
+- Phone Number: [_____________]
+  Format: +966 5XXXXXXXXX (Saudi format)
+
+Buttons:
+- "Continue to License Verification" (enabled when all valid)
+- "Already have an account? Log In"
+Screen 2: License Verification
+Title: تحقق من رخصتك / License Verification
+
+Instructions (Bilingual):
+"Upload a clear image or PDF of your Saudi MOH medical license.
+We will verify your credentials within 24-48 hours."
+
+Upload Section:
+- File upload (drag-and-drop or file picker)
+  Accept: JPG, PNG, PDF
+  Max size: 5MB
+  Show preview after upload
+
+- License Number: [_____________]
+  Placeholder: "6-10 digit MOH number"
+  Validation: Format check
+
+- License Type (Dropdown):
+  ○ General Practitioner (طبيب عام)
+  ○ Cardiologist (أخصائي القلب)
+  ○ Pediatrician (أخصائي الأطفال)
+  ○ Psychiatrist (أخصائي الصحة النفسية)
+  ○ Dermatologist (أخصائي الجلدية)
+  ○ Orthopedic Surgeon (جراح العظام)
+  ○ Gynecologist (أخصائي النساء)
+  ○ Other: [text field]
+
+- License Expiration Date: [Date Picker]
+  Validation: Cannot be in the past
+  Warning: If expiring within 30 days
+
+Buttons:
+- "Submit for Verification"
+- "Back"
+Screen 3: Verification Pending
+Title: جاري التحقق من حسابك / Your Account is Being Verified
+
+Message (Bilingual):
+"We typically verify accounts within 24-48 hours.
+You'll receive an email and notification when approved."
+
+Status Box (Animated):
+[████░░░░░░] Processing...
+
+Checklist (Informational):
+✓ Account created
+✓ License uploaded
+⏳ Waiting for verification
+░ Account activated
+
+Next Steps:
+- We'll review your license
+- You'll get email notification
+- Then you can start consulting
+
+Can do now:
+- Edit your profile (optional)
+- Add introduction/bio
+- Update contact information
+
+Buttons:
+- "Edit Your Profile"
+- "OK" (goes to dashboard in pending state)
+Screen 4: Verification Approved (Email + App)
+Email Subject:
+"✓ Saleem - Your Account Has Been Verified!"
+
+Email Body:
+"Dear [Doctor Name],
+
+Your medical license has been verified successfully!
+Your Saleem account is now active.
+
+You can now:
+- Create your professional profile
+- Start consulting with patients
+- Upload your credentials and materials
+
+Log in to get started: [app link]
+
+Best regards,
+Saleem Team"
+
+App Notification:
+Title: "🎉 You're Verified!"
+Message: "Your account is active. Start consulting patients!"
+Buttons: "Go to Dashboard" | "Edit Profile"
+Screen 5: Verification Rejected (Email + App)
+Email Subject:
+"Saleem - Account Verification Update"
+
+Email Body:
+"Dear [Doctor Name],
+
+We were unable to verify your account at this time.
+
+Reason: [e.g., "License image is not clear" or "License has expired"]
+
+What you can do:
+- Upload a new license document
+- Contact support if you have questions
+
+Upload new document: [app link]
+
+We're here to help!
+Saleem Support Team"
+
+App Notification:
+Title: "⚠️ Verification Unsuccessful"
+Message: "Your license verification was unsuccessful"
+
+App Screen:
+Show rejection reason
+- Option 1: "Upload Again"
+- Option 2: "Contact Support"
+- Option 3: "Exit"
+Doctor Login Flow
+Screen: Doctor Login
+Title: تسجيل دخول الطبيب / Doctor Login
+
+Form Fields:
+- Email: [_____________]
+  
+- Password: [_____________]
+  Show password toggle icon
+
+- Remember me: ☐
+  (Keeps user logged in for 30 days)
+
+Buttons:
+- "Log In" (enabled when email + password filled)
+- "Don't have an account? Sign Up"
+- "Forgot Password?"
+
+Error Messages (if login fails):
+- "Invalid email or password"
+- "Account is not verified yet"
+- "Account is inactive (license expired)"
+- "Too many login attempts. Try again in 15 minutes"
+Doctor Login - Forgot Password
+Screen 1: Reset Email
+Title: هل نسيت كلمة المرور؟ / Forgot Password?
+
+Instructions:
+"Enter your email address. We'll send you a link to reset your password."
+
+Form:
+- Email: [_____________]
+
+Button: "Send Reset Link"
+
+Success Message:
+"Check your email for password reset link.
+Link expires in 1 hour."
+Screen 2: Email Received
+Subject: "Saleem - Reset Your Password"
+
+Email Body:
+"Hi [Doctor Name],
+
+Click the link below to reset your password:
+[https://saleem.app/reset-password?token=xxxxx]
+
+This link expires in 1 hour.
+
+If you didn't request this, ignore this email.
+
+Saleem Team"
+
+When user clicks link → goes to Screen 3
+Screen 3: Reset Password
+Title: إعادة تعيين كلمة المرور / Reset Your Password
+
+Form:
+- New Password: [_____________]
+  Requirements: 8+ chars, 1 uppercase, 1 number, 1 special char
+  Show strength indicator
+  
+- Confirm Password: [_____________]
+
+Button: "Update Password"
+
+Success:
+"Password updated successfully. You can now log in."
+Auto-redirect to login screen after 2 seconds
+
+1.2 Patient Login System
+Patient Signup Flow
+Screen 1: Patient Registration
+Title: تسجيل مريض جديد / Register as Patient
+
+Form Fields:
+- Full Name: [_____________]
+  Accept: Arabic and English names
+
+- Email: [_____________]
+  Validation: Valid email, unique in database
+
+- Password: [_____________]
+  Requirements: Same as doctor (8+ chars, uppercase, number, special char)
+  Show strength indicator
+  
+- Confirm Password: [_____________]
+
+- Phone Number: [_____________]
+  Format: +966 5XXXXXXXXX (Saudi format)
+
+Checkbox (MUST check):
+☐ I have read and agree to the Terms & Conditions
+
+Buttons:
+- "Create Account"
+- "Already have an account? Log In"
+Screen 2: Email Verification
+Title: تحقق من بريدك / Verify Your Email
+
+Message:
+"We sent a verification code to [email@example.com]
+Enter the 6-digit code below"
+
+Form:
+- Code: [_ _ _ _ _ _]
+  Auto-focus, auto-submit when 6 digits entered
+
+Options:
+- "Didn't receive code? Resend in 45 seconds"
+- "Change email address"
+
+After verification → goes to "Account Created" screen
+Screen 3: Account Created
+Title: مرحبا! / Welcome!
+
+Message (Bilingual):
+"Your account has been created successfully.
+You can now start consulting with doctors."
+
+Button: "Start Exploring" (goes to home/doctor search)
+Patient Login Flow
+Screen: Patient Login
+Title: تسجيل دخول المريض / Patient Login
+
+Form Fields:
+- Email: [_____________]
+
+- Password: [_____________]
+  Show password toggle
+
+- Remember me: ☐
+  (Keeps logged in for 30 days)
+
+Buttons:
+- "Log In"
+- "Don't have an account? Sign Up"
+- "Forgot Password?"
+
+Error Messages:
+- "Invalid email or password"
+- "Email not verified. Check your inbox"
+- "Account is disabled"
+- "Too many login attempts. Try again in 15 minutes"
+Patient Login - Forgot Password (Same flow as doctor)
+
+1.3 Session Management & Security
+Session Persistence
+After successful login:
+- Store auth token securely (secure HTTP-only cookie or secure storage)
+- User remains logged in until:
+  ☐ They manually log out
+  ☐ 30 days pass (if "Remember me" checked)
+  ☐ They switch devices
+  ☐ Session times out
+
+Session timeout for medical data access:
+- 15 minutes of inactivity → auto-logout
+- Warning at 14 minutes: "Session expires in 1 minute"
+- Button on warning: "Stay Logged In" (extends by 15 more minutes)
+- Activity definition: scroll, click, type, tap (NOT just reading)
+Login Attempt Protection
+Rate Limiting:
+- 5 failed login attempts → lock for 15 minutes
+- Show message: "Too many failed attempts. Try again in 15 minutes"
+- Alert user via email: "Multiple failed login attempts detected"
+
+Security measures:
+- Hash passwords with bcrypt (cost: 12 rounds)
+- Never store plain text passwords
+- Use strong session tokens (minimum 32 bytes)
+- Implement CSRF protection on login forms
+Logout
+Logout Button Location:
+- Settings page > Account > Log Out
+- Click logout → confirm dialog
+
+Dialog:
+"Are you sure you want to log out?"
+Buttons: "Log Out" | "Cancel"
+
+After logout:
+- Clear all session data
+- Clear stored tokens
+- Redirect to login page
+- Show message: "You have been logged out successfully"
+
+1.4 Database Structure for Authentication
+/doctors/{doctorId}
+  - email: string (unique, indexed)
+  - passwordHash: string (bcrypt hashed)
+  - name: string
+  - nameArabic: string
+  - phone: string
+  - licenseNumber: string (unique)
+  - licenseType: string
+  - licenseImageUrl: string (cloud storage)
+  - licenseExpirationDate: timestamp
+  - verificationStatus: "pending" | "verified" | "rejected"
+  - isActive: boolean
+  - emailVerified: boolean
+  - emailVerifiedAt: timestamp
+  - createdAt: timestamp
+  - updatedAt: timestamp
+  - lastLoginAt: timestamp
+  - loginAttempts: number
+  - lockedUntil: timestamp (if locked)
+
+/patients/{patientId}
+  - email: string (unique, indexed)
+  - passwordHash: string (bcrypt hashed)
+  - name: string
+  - phone: string
+  - emailVerified: boolean
+  - emailVerifiedAt: timestamp
+  - createdAt: timestamp
+  - updatedAt: timestamp
+  - lastLoginAt: timestamp
+  - loginAttempts: number
+  - lockedUntil: timestamp (if locked)
+
+/sessions/{sessionId}
+  - userId: string
+  - userType: "doctor" | "patient"
+  - createdAt: timestamp
+  - expiresAt: timestamp
+  - lastActivityAt: timestamp
+  - rememberMe: boolean
+
+/loginActivity/{logId}
+  - userId: string
+  - userType: "doctor" | "patient"
+  - timestamp: timestamp
+  - ipAddress: string
+  - deviceType: string (mobile, web, tablet)
+  - success: boolean
+  - failureReason: string (if unsuccessful)
+
+/passwordResets/{resetId}
+  - userId: string
+  - userType: "doctor" | "patient"
+  - token: string (unique)
+  - createdAt: timestamp
+  - expiresAt: timestamp (1 hour)
+  - used: boolean
+  - usedAt: timestamp
+
+PART 2: COMPLIANCE CHECKLIST (SAUDI ARABIA)
+Critical Safety & Legal Features (Must Have Before Test Flight)
+✅ Checklist 1: Emergency Care Disclaimer
+Status: Must implement immediately
+What it is:
+A clear warning that Saleem is NOT for emergencies, with Saudi emergency number (997)
+Implementation:
+□ Create emergency disclaimer modal/screen
+□ Show on app first launch (once, user can dismiss)
+□ Show again in Settings > Safety Info
+□ Show before patient starts first chat
+□ Include both Arabic and English text
+□ Include 997 phone number prominently
+□ Include checkbox: "I understand this is not emergency care"
+□ Button disabled until checkbox is checked
+Required Text (Bilingual):
+ARABIC:
+⚠️ انتبه! Saleem ليس خدمة طوارئ طبية
+في حالة الطوارئ الطبية، اتصل برقم 997 فوراً
+Saleem تقدم استشارات طبية غير طارئة فقط
+
+ENGLISH:
+⚠️ ALERT: Saleem is NOT for medical emergencies
+In case of medical emergency, call 997 immediately
+Saleem provides non-emergency medical advice only
+Database:
+/users/{userId}
+  - emergencyDisclaimerAgreed: boolean
+  - disclaimerAgreedAt: timestamp
+  - disclaimerVersion: "1.0"
+Verification:
+□ Modal appears on first app launch
+□ Text is in both Arabic and English
+□ 997 number is visible
+□ Checkbox is required before continuing
+□ Acceptance is saved to database with timestamp
+□ User can see it again in Settings
+
+✅ Checklist 2: Doctor License Verification
+Status: Critical for compliance
+What it is:
+Only verified licensed doctors can consult patients
+Implementation:
+□ Doctor signup requires license upload
+□ License upload form accepts JPG, PNG, PDF (max 5MB)
+□ Admin dashboard to review and approve licenses
+□ Doctors stay in "pending" status until verified (24-48 hours)
+□ Doctors cannot chat with patients while "pending"
+□ Verify button in admin dashboard
+□ Reject button in admin dashboard (with reason field)
+□ Auto-deactivate doctors with expired licenses
+□ Email notification when license approved
+□ Email notification when license rejected
+□ Show license status badge on doctor profile
+□ License expiration warning if <30 days (notify doctor)
+Database:
+Doctors collection must have:
+□ licenseNumber (unique, indexed)
+□ licenseImageUrl
+□ licenseExpirationDate
+□ verificationStatus ("pending", "verified", "rejected")
+□ isActive (auto-false if expired)
+
+Admin verification queue:
+□ doctorVerificationQueue collection
+□ List of pending doctors
+□ Show uploaded license image
+□ Approve/Reject functionality
+□ Notes field for rejection reasons
+Verification:
+□ Doctor cannot complete signup without license upload
+□ Admin can see pending doctors in dashboard
+□ Admin can approve and doctor gets email
+□ Admin can reject and doctor gets email with reason
+□ Approved doctor can now chat with patients
+□ Expired doctors cannot chat (auto-deactivated)
+□ License status visible on doctor profile to patients
+
+✅ Checklist 3: Doctor-Patient Relationship Disclaimer
+Status: Must implement before chat
+What it is:
+Legal statement about the nature of the service
+Implementation:
+□ Create disclaimer screen/modal
+□ Show before first chat starts
+□ User must check "I agree" to proceed
+□ Save agreement to database with timestamp
+□ Include terms about:
+  • Creates legitimate doctor-patient relationship
+  • Subject to medical confidentiality
+  • NOT a substitute for in-person exam
+  • NOT appropriate for emergencies
+  • Neither party liable for ignoring this warning
+Required Text (Bilingual):
+ARABIC:
+خصائص هذه الاستشارة:
+✓ تنشئ علاقة طبيب-مريض شرعية
+✓ تخضع للسرية الطبية
+✗ ليست بديلاً للفحص الطبي المباشر
+✗ ليست مناسبة للحالات الطارئة
+
+في حالة الطوارئ اتصل برقم 997
+
+ENGLISH:
+About this consultation:
+✓ Creates a legitimate doctor-patient relationship
+✓ Subject to medical confidentiality
+✗ NOT a substitute for in-person examination
+✗ NOT appropriate for emergencies
+
+In case of emergency, call 997
+Database:
+/chats/{chatId}
+  - doctorPatientAgreementAccepted: boolean
+  - agreementAcceptedAt: timestamp
+  - agreementVersion: "1.0"
+Verification:
+□ Disclaimer shows before first message
+□ Checkbox required to proceed
+□ User cannot send message without agreeing
+□ Agreement saved with timestamp
+
+✅ Checklist 4: Session Security & Auto-Logout
+Status: Medical data security requirement
+What it is:
+Users are automatically logged out after inactivity to prevent unauthorized access
+Implementation:
+□ 15-minute inactivity timeout
+□ Track last activity timestamp (scrolling, typing, clicks)
+□ Show warning at 14 minutes: "Your session expires in 1 minute"
+□ Warning includes "Stay Logged In" button
+□ Auto-logout silently if warning is ignored
+□ Log all login attempts (timestamp, IP, device)
+□ Show login activity in Settings > Security
+□ Detect unusual login locations (optional first phase)
+Database:
+/users/{userId}
+  - lastActivityAt: timestamp (updated on every action)
+  - sessionStartTime: timestamp
+  
+/loginActivity/{logId}
+  - userId: string
+  - timestamp: timestamp
+  - ipAddress: string
+  - deviceType: string
+  - loginSuccess: boolean
+Verification:
+□ User stays logged in with activity
+□ Warning shows at 14 minutes
+□ Session extends if "Stay Logged In" clicked
+□ Auto-logout at 15 minutes if no activity
+□ Login history visible in settings
+
+✅ Checklist 5: Data Encryption (In Transit)
+Status: Medical data security requirement
+What it is:
+All data sent between app and servers is encrypted
+Implementation:
+□ HTTPS/TLS 1.2+ enabled on all connections
+□ API endpoints use HTTPS only (no HTTP)
+□ Implement certificate pinning (optional, advanced)
+□ No medical data sent in plain text logs
+□ No passwords sent without encryption
+□ Error messages don't expose medical data
+Verification:
+□ All API calls use HTTPS
+□ Test with browser dev tools: no unencrypted medical data
+□ Check Firebase/backend security rules
+□ Verify encryption is enabled in server settings
+
+✅ Checklist 6: Password Security
+Status: Authentication security
+What it is:
+Strong passwords and secure password handling
+Implementation:
+□ Minimum 8 characters
+□ At least 1 uppercase letter
+□ At least 1 number
+□ At least 1 special character (!@#$%^&*)
+□ Password strength indicator in signup
+□ Passwords hashed with bcrypt (cost: 12)
+□ Password reset via email (1-hour link expiration)
+□ Never store plain text passwords
+□ Never send password in error messages
+□ Never send password back to user
+Verification:
+□ Can't signup with weak password
+□ Password strength meter works
+□ Reset link expires after 1 hour
+□ New password works after reset
+□ Old password doesn't work
+
+✅ Checklist 7: Email Verification
+Status: Account security
+What it is:
+Patients must verify email before using app
+Implementation:
+□ Send verification code after patient signup
+□ Code is 6 digits, expires in 10 minutes
+□ Patient enters code to verify email
+□ Allow resend code (max 3 times)
+□ Patient cannot chat until email is verified
+□ Doctor email verified automatically on signup (optional)
+□ Verification status visible in user settings
+Database:
+/users/{userId}
+  - emailVerified: boolean
+  - emailVerifiedAt: timestamp
+  - emailVerificationCode: string (hashed)
+  - emailVerificationCodeExpiresAt: timestamp
+Verification:
+□ Verification code email sent
+□ Patient can enter code and verify
+□ Cannot start chat without verification
+□ Can request new code
+□ Code expires after 10 minutes

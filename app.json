@@ -10,7 +10,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.saleem.health"
+      "bundleIdentifier": "com.saleem.health",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.saleem.health",
@@ -46,6 +49,11 @@
     "locales": {
       "ar": "./locales/ar.json",
       "en": "./locales/en.json"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "e7133b28-9d7b-4d47-ad56-41db2831ece1"
+      }
     }
   }
 }
