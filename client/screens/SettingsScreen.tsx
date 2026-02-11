@@ -16,6 +16,7 @@ import { HealthBadgeItem } from "@/components/HealthBadge";
 import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUser } from "@/contexts/UserContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, SaleemColors, BorderRadius } from "@/constants/theme";
 import { healthConditions, searchConditions } from "@/data/healthConditions";
 
@@ -27,7 +28,8 @@ export default function SettingsScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
   const { t, isRTL, language, setLanguage } = useLanguage();
-  const { user, updateUser, addMedication, removeMedication, addBadge, removeBadge, deleteAllData } = useUser();
+  const { user: localUser, updateUser, addMedication, removeMedication, addBadge, removeBadge, deleteAllData } = useUser();
+  const { user: authUser, logout } = useAuth();
   
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
@@ -51,9 +53,9 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    updateUser({ onboardingComplete: false, pdplConsent: false });
+    await logout();
   };
 
   const handleAddMedication = () => {
@@ -74,7 +76,7 @@ export default function SettingsScreen() {
     : healthConditions.slice(0, 15);
 
   const isConditionSelected = (id: string) => {
-    return user.badges.some((b) => b.id === id || b.name === healthConditions.find(c => c.id === id)?.name);
+    return localUser.badges.some((b) => b.id === id || b.name === healthConditions.find(c => c.id === id)?.name);
   };
 
   const SettingRow = ({ 
@@ -158,7 +160,7 @@ export default function SettingsScreen() {
           <View style={styles.profileRow}>
             <ThemedText type="body">{language === "ar" ? "الاسم" : "Name"}</ThemedText>
             <ThemedText type="body" style={{ color: SaleemColors.primary }}>
-              {user.name || "--"}
+              {authUser?.nameEn || authUser?.nameAr || localUser.name || "--"}
             </ThemedText>
           </View>
           
@@ -169,14 +171,14 @@ export default function SettingsScreen() {
                 style={styles.slider}
                 minimumValue={100}
                 maximumValue={220}
-                value={user.height || 170}
+                value={localUser.height || 170}
                 onSlidingComplete={(value) => updateUser({ height: Math.round(value) })}
                 minimumTrackTintColor={SaleemColors.accent}
                 maximumTrackTintColor={theme.backgroundSecondary}
                 thumbTintColor={SaleemColors.accent}
               />
               <ThemedText type="small" style={{ color: SaleemColors.accent, width: 60, textAlign: "right" }}>
-                {user.height || 170} {t("cm")}
+                {localUser.height || 170} {t("cm")}
               </ThemedText>
             </View>
           </View>
@@ -188,14 +190,14 @@ export default function SettingsScreen() {
                 style={styles.slider}
                 minimumValue={30}
                 maximumValue={200}
-                value={user.weight || 70}
+                value={localUser.weight || 70}
                 onSlidingComplete={(value) => updateUser({ weight: Math.round(value) })}
                 minimumTrackTintColor={SaleemColors.accent}
                 maximumTrackTintColor={theme.backgroundSecondary}
                 thumbTintColor={SaleemColors.accent}
               />
               <ThemedText type="small" style={{ color: SaleemColors.accent, width: 60, textAlign: "right" }}>
-                {user.weight || 70} {t("kg")}
+                {localUser.weight || 70} {t("kg")}
               </ThemedText>
             </View>
           </View>
@@ -213,14 +215,14 @@ export default function SettingsScreen() {
         <SettingRow
           icon="heart"
           title={language === "ar" ? "حالاتي الصحية" : "Health Conditions"}
-          subtitle={`${user.badges.length} ${language === "ar" ? "حالة" : "conditions"}`}
+          subtitle={`${localUser.badges.length} ${language === "ar" ? "حالة" : "conditions"}`}
           onPress={() => setShowHealthModal(true)}
         />
         
         <SettingRow
           icon="package"
           title={language === "ar" ? "أدويتي" : "My Medications"}
-          subtitle={`${user.medications.length} ${language === "ar" ? "دواء" : "medications"}`}
+          subtitle={`${localUser.medications.length} ${language === "ar" ? "دواء" : "medications"}`}
           onPress={() => setShowMedModal(true)}
         />
       </Animated.View>
@@ -371,7 +373,7 @@ export default function SettingsScreen() {
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       if (isConditionSelected(condition.id)) {
-                        const badge = user.badges.find(b => b.name === condition.name);
+                        const badge = localUser.badges.find(b => b.name === condition.name);
                         if (badge) removeBadge(badge.id);
                       } else {
                         addBadge({
@@ -413,9 +415,9 @@ export default function SettingsScreen() {
               {language === "ar" ? "أدويتي الحالية" : "Current Medications"}
             </ThemedText>
             
-            {user.medications.length > 0 ? (
+            {localUser.medications.length > 0 ? (
               <View style={styles.medList}>
-                {user.medications.map((med) => (
+                {localUser.medications.map((med) => (
                   <View 
                     key={med.id}
                     style={[styles.medItem, { backgroundColor: theme.cardBackground }]}

@@ -1,605 +1,224 @@
-import React, { useState, useEffect } from "react";
-import { View, StyleSheet, FlatList, Pressable, TextInput, Modal } from "react-native";
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  View, StyleSheet, FlatList, Pressable, ActivityIndicator,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { RouteProp } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import { useFocusEffect } from "@react-navigation/native";
 
 import { ThemedText } from "@/components/ThemedText";
-import { Button } from "@/components/Button";
-import { Card } from "@/components/Card";
-import { Disclaimer } from "@/components/Disclaimer";
 import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Spacing, SaleemColors, BorderRadius, Shadows } from "@/constants/theme";
-import { DoctorStackParamList } from "@/navigation/DoctorNavigator";
+import { useAuth } from "@/contexts/AuthContext";
+import { Spacing, SaleemColors, BorderRadius } from "@/constants/theme";
+import { getApiUrl } from "@/lib/query-client";
 
-type DoctorDashboardScreenProps = {
-  navigation: NativeStackNavigationProp<DoctorStackParamList, "DoctorDashboard">;
-  route: RouteProp<DoctorStackParamList, "DoctorDashboard">;
-};
-
-interface Patient {
+interface ChatItem {
   id: string;
-  name: string;
+  patientId: string;
+  patientName: string;
   lastMessage: string;
-  timestamp: string;
-  unread: number;
-  notes?: string;
+  lastMessageAt: string;
+  unreadCount: number;
+  hasNotes: boolean;
 }
 
-const generateClinicCode = () => {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  let code = "";
-  for (let i = 0; i < 6; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
-};
-
-export default function DoctorDashboardScreen({ navigation, route }: DoctorDashboardScreenProps) {
+export default function DoctorDashboardScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { language, isRTL } = useLanguage();
-  const { doctorName, specialty } = route.params;
-  
-  const [clinicCode, setClinicCode] = useState("");
-  const [customCodeInput, setCustomCodeInput] = useState("");
-  const [showCodeModal, setShowCodeModal] = useState(false);
-  const [showNotesModal, setShowNotesModal] = useState(false);
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-  const [notesInput, setNotesInput] = useState("");
-  const [patients, setPatients] = useState<Patient[]>([
-    {
-      id: "1",
-      name: language === "ar" ? "محمد أحمد" : "Mohammed Ahmed",
-      lastMessage: language === "ar" ? "شكراً دكتور" : "Thank you doctor",
-      timestamp: "10:30 AM",
-      unread: 2,
-      notes: "",
-    },
-    {
-      id: "2",
-      name: language === "ar" ? "سارة علي" : "Sara Ali",
-      lastMessage: language === "ar" ? "متى الموعد القادم؟" : "When is the next appointment?",
-      timestamp: "Yesterday",
-      unread: 0,
-      notes: "",
-    },
-    {
-      id: "3",
-      name: language === "ar" ? "خالد محمود" : "Khaled Mahmoud",
-      lastMessage: language === "ar" ? "هل أحتاج فحوصات إضافية؟" : "Do I need additional tests?",
-      timestamp: "2 days ago",
-      unread: 1,
-      notes: "",
-    },
-  ]);
+  const { language } = useLanguage();
+  const { user, logout } = useAuth();
 
-  useEffect(() => {
-    setClinicCode(generateClinicCode());
-  }, []);
+  const [chats, setChats] = useState<ChatItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [codeCopied, setCodeCopied] = useState(false);
 
-  const handleGenerateCode = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const newCode = generateClinicCode();
-    setClinicCode(newCode);
-    setCustomCodeInput("");
-  };
-
-  const handleSetCustomCode = () => {
-    if (customCodeInput.trim().length >= 3) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setClinicCode(customCodeInput.trim().toUpperCase());
-      setCustomCodeInput("");
+  const fetchChats = useCallback(async () => {
+    if (!user) return;
+    try {
+      const baseUrl = getApiUrl();
+      const res = await fetch(new URL("/api/chats", baseUrl).href, {
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setChats(data);
+      }
+    } catch (error) {
+      console.error("Error fetching chats:", error);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [user]);
 
-  const handleCopyCode = async () => {
-    await Clipboard.setStringAsync(clinicCode);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  };
-
-  const handleLogout = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    navigation.replace("DoctorLogin");
-  };
-
-  const handleOpenNotes = (patient: Patient) => {
-    setSelectedPatient(patient);
-    setNotesInput(patient.notes || "");
-    setShowNotesModal(true);
-  };
-
-  const handleSaveNotes = () => {
-    if (selectedPatient) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setPatients((prev) =>
-        prev.map((p) =>
-          p.id === selectedPatient.id ? { ...p, notes: notesInput } : p
-        )
-      );
-      setShowNotesModal(false);
-      setSelectedPatient(null);
-      setNotesInput("");
-    }
-  };
-
-  const renderPatient = ({ item }: { item: Patient }) => (
-    <Animated.View entering={FadeIn.duration(300)}>
-      <View style={[styles.patientCard, { backgroundColor: theme.cardBackground }, Shadows.small]}>
-        <Pressable
-          style={styles.patientMainContent}
-          onPress={() => navigation.navigate("DoctorChat", { patientName: item.name, patientId: item.id })}
-        >
-          <View style={[styles.avatar, { backgroundColor: SaleemColors.primary + "20" }]}>
-            <ThemedText type="h4" style={{ color: SaleemColors.primary }}>
-              {item.name.charAt(0)}
-            </ThemedText>
-          </View>
-          
-          <View style={[styles.patientInfo, isRTL && { alignItems: "flex-end" }]}>
-            <ThemedText type="body" numberOfLines={1}>{item.name}</ThemedText>
-            <ThemedText type="caption" style={{ color: theme.textSecondary }} numberOfLines={1}>
-              {item.lastMessage}
-            </ThemedText>
-            {item.notes ? (
-              <View style={styles.notesIndicator}>
-                <Feather name="file-text" size={10} color={SaleemColors.accent} />
-                <ThemedText type="caption" style={{ color: SaleemColors.accent, fontSize: 10 }} numberOfLines={1}>
-                  {language === "ar" ? "ملاحظات" : "Notes"}
-                </ThemedText>
-              </View>
-            ) : null}
-          </View>
-          
-          <View style={styles.patientMeta}>
-            <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-              {item.timestamp}
-            </ThemedText>
-            {item.unread > 0 ? (
-              <View style={[styles.unreadBadge, { backgroundColor: SaleemColors.accent }]}>
-                <ThemedText type="caption" style={{ color: "#FFFFFF" }}>
-                  {item.unread}
-                </ThemedText>
-              </View>
-            ) : null}
-          </View>
-        </Pressable>
-        
-        <Pressable
-          style={[styles.notesButton, { backgroundColor: item.notes ? SaleemColors.accent + "20" : theme.backgroundSecondary }]}
-          onPress={() => handleOpenNotes(item)}
-        >
-          <Feather name="edit-3" size={16} color={item.notes ? SaleemColors.accent : theme.textSecondary} />
-        </Pressable>
-      </View>
-    </Animated.View>
+  useFocusEffect(
+    useCallback(() => {
+      fetchChats();
+      const interval = setInterval(fetchChats, 5000);
+      return () => clearInterval(interval);
+    }, [fetchChats])
   );
 
+  const copyCode = async () => {
+    if (user?.clinicCode) {
+      await Clipboard.setStringAsync(user.clinicCode);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setCodeCopied(true);
+      setTimeout(() => setCodeCopied(false), 2000);
+    }
+  };
+
+  const handleLogout = async () => {
+    await logout();
+  };
+
+  const totalUnread = chats.reduce((sum, c) => sum + c.unreadCount, 0);
+
   return (
-    <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
-      <View style={[styles.header, { paddingTop: insets.top + Spacing.lg, backgroundColor: SaleemColors.primary }]}>
-        <View style={styles.headerContent}>
-          <View style={{ flex: 1 }}>
-            <ThemedText type="h2" style={{ color: "#FFFFFF" }}>
-              {language === "ar" ? `مرحباً، د. ${doctorName}` : `Hello, Dr. ${doctorName}`}
-            </ThemedText>
-            <ThemedText type="body" style={{ color: "rgba(255,255,255,0.8)" }}>
-              {specialty}
-            </ThemedText>
-          </View>
-          <View style={styles.headerButtons}>
-            <Pressable
-              style={[styles.codeButton, { backgroundColor: "rgba(255,255,255,0.2)" }]}
-              onPress={() => setShowCodeModal(true)}
-              testID="button-clinic-code"
-              accessibilityLabel="Clinic Code"
-            >
-              <Feather name="key" size={20} color="#FFFFFF" />
-            </Pressable>
-            <Pressable
-              style={[styles.codeButton, { backgroundColor: "rgba(255,255,255,0.2)" }]}
-              onPress={handleLogout}
-              testID="button-logout"
-              accessibilityLabel="Logout"
-            >
-              <Feather name="log-out" size={20} color="#FFFFFF" />
-            </Pressable>
-          </View>
+    <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: insets.top }]}>
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <ThemedText type="h2">
+            {language === "ar" ? "لوحة التحكم" : "Dashboard"}
+          </ThemedText>
+          <ThemedText type="small" style={{ color: theme.textSecondary }}>
+            {user?.nameEn || user?.nameAr || ""}
+          </ThemedText>
         </View>
-        
-        <Pressable
-          style={[styles.codeCard, { backgroundColor: "rgba(255,255,255,0.15)" }]}
-          onPress={() => setShowCodeModal(true)}
-        >
-          <View style={styles.codeLeft}>
-            <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.8)" }}>
-              {language === "ar" ? "رمز العيادة" : "Clinic Code"}
-            </ThemedText>
-            <ThemedText type="h3" style={{ color: "#FFFFFF", letterSpacing: 2 }}>
-              {clinicCode}
-            </ThemedText>
-          </View>
-          <Pressable onPress={handleCopyCode} style={styles.copyButton}>
-            <Feather name="copy" size={20} color="#FFFFFF" />
+        <View style={styles.headerActions}>
+          <Pressable onPress={() => navigation.navigate("DoctorProfile")} style={styles.iconBtn} testID="button-profile">
+            <Feather name="user" size={22} color={theme.text} />
           </Pressable>
-        </Pressable>
+          <Pressable onPress={handleLogout} style={styles.iconBtn} testID="button-logout">
+            <Feather name="log-out" size={22} color={SaleemColors.error} />
+          </Pressable>
+        </View>
       </View>
 
-      <FlatList
-        data={patients}
-        keyExtractor={(item) => item.id}
-        renderItem={renderPatient}
-        contentContainerStyle={{
-          padding: Spacing.lg,
-          paddingBottom: insets.bottom + Spacing.xl,
-        }}
-        ListHeaderComponent={
-          <View style={{ marginBottom: Spacing.lg }}>
-            <Disclaimer />
-            <ThemedText type="h4" style={[styles.sectionTitle, isRTL && { textAlign: "right" }]}>
-              {language === "ar" ? "المرضى" : "Patients"} ({patients.length})
+      <Animated.View entering={FadeInDown.delay(100).duration(500)}>
+        <Pressable onPress={copyCode} style={[styles.codeCard, { backgroundColor: SaleemColors.primary }]}>
+          <View>
+            <ThemedText type="small" style={{ color: "rgba(255,255,255,0.7)" }}>
+              {language === "ar" ? "رمز العيادة" : "Clinic Code"}
+            </ThemedText>
+            <ThemedText type="h2" style={{ color: "#FFF", letterSpacing: 4 }}>
+              {user?.clinicCode || "------"}
             </ThemedText>
           </View>
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Feather name="users" size={48} color={theme.textSecondary} />
-            <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.md }}>
-              {language === "ar" ? "لا يوجد مرضى بعد" : "No patients yet"}
-            </ThemedText>
-            <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-              {language === "ar" ? "شارك رمز العيادة مع مرضاك" : "Share your clinic code with patients"}
+          <View style={styles.copyBtn}>
+            <Feather name={codeCopied ? "check" : "copy"} size={20} color="#FFF" />
+            <ThemedText type="caption" style={{ color: "#FFF" }}>
+              {codeCopied
+                ? (language === "ar" ? "تم النسخ" : "Copied")
+                : (language === "ar" ? "نسخ" : "Copy")}
             </ThemedText>
           </View>
-        }
-      />
+        </Pressable>
+      </Animated.View>
 
-      <Modal
-        visible={showCodeModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowCodeModal(false)}
-      >
-        <View style={[styles.modalContainer, { backgroundColor: theme.backgroundRoot }]}>
-          <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
-            <Pressable onPress={() => setShowCodeModal(false)}>
-              <ThemedText type="button" style={{ color: theme.textSecondary }}>
-                {language === "ar" ? "إغلاق" : "Close"}
-              </ThemedText>
-            </Pressable>
-            <ThemedText type="h4">{language === "ar" ? "رمز العيادة" : "Clinic Code"}</ThemedText>
-            <View style={{ width: 60 }} />
-          </View>
-          
-          <View style={styles.modalContent}>
-            <View style={[styles.codeDisplay, { backgroundColor: SaleemColors.primary }]}>
-              <ThemedText type="caption" style={{ color: "rgba(255,255,255,0.8)" }}>
-                {language === "ar" ? "رمزك الحالي" : "Your Current Code"}
-              </ThemedText>
-              <ThemedText type="h1" style={{ color: "#FFFFFF", letterSpacing: 6, marginTop: Spacing.md }}>
-                {clinicCode}
-              </ThemedText>
-            </View>
-            
-            <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.xl }}>
-              {language === "ar" 
-                ? "شارك هذا الرمز مع مرضاك للسماح لهم بالتواصل معك" 
-                : "Share this code with your patients to allow them to chat with you"}
-            </ThemedText>
-            
-            <View style={styles.modalButtons}>
-              <Button
-                onPress={handleCopyCode}
-                variant="primary"
-                size="large"
-                style={{ flex: 1 }}
-              >
-                <Feather name="copy" size={18} color="#FFFFFF" />
-                {"  "}
-                {language === "ar" ? "نسخ الرمز" : "Copy Code"}
-              </Button>
-            </View>
+      <Animated.View entering={FadeInDown.delay(200).duration(500)} style={styles.statsRow}>
+        <View style={[styles.statCard, { backgroundColor: theme.cardBackground }]}>
+          <ThemedText type="h2" style={{ color: SaleemColors.accent }}>{chats.length}</ThemedText>
+          <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+            {language === "ar" ? "مرضى" : "Patients"}
+          </ThemedText>
+        </View>
+        <View style={[styles.statCard, { backgroundColor: theme.cardBackground }]}>
+          <ThemedText type="h2" style={{ color: SaleemColors.warning }}>{totalUnread}</ThemedText>
+          <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+            {language === "ar" ? "غير مقروءة" : "Unread"}
+          </ThemedText>
+        </View>
+      </Animated.View>
 
-            <View style={[styles.customCodeSection, { borderTopColor: theme.border }]}>
-              <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: Spacing.md }}>
-                {language === "ar" ? "أو أدخل رمزاً مخصصاً" : "Or enter a custom code"}
-              </ThemedText>
-              
-              <View style={styles.customCodeRow}>
-                <TextInput
-                  style={[
-                    styles.customCodeInput,
-                    { 
-                      backgroundColor: theme.backgroundSecondary, 
-                      color: theme.text,
-                      borderColor: customCodeInput.length >= 3 ? SaleemColors.accent : theme.border,
-                    },
-                  ]}
-                  placeholder={language === "ar" ? "رمز مخصص (3+ أحرف)" : "Custom code (3+ chars)"}
-                  placeholderTextColor={theme.textSecondary}
-                  value={customCodeInput}
-                  onChangeText={(text) => setCustomCodeInput(text.toUpperCase())}
-                  autoCapitalize="characters"
-                  maxLength={10}
-                />
-                <Pressable
-                  onPress={handleSetCustomCode}
-                  disabled={customCodeInput.trim().length < 3}
-                  style={[
-                    styles.setCodeButton,
-                    { 
-                      backgroundColor: customCodeInput.trim().length >= 3 
-                        ? SaleemColors.accent 
-                        : theme.backgroundSecondary,
-                    },
-                  ]}
-                >
-                  <Feather 
-                    name="check" 
-                    size={20} 
-                    color={customCodeInput.trim().length >= 3 ? "#FFFFFF" : theme.textSecondary} 
-                  />
-                </Pressable>
+      <ThemedText type="h3" style={styles.sectionTitle}>
+        {language === "ar" ? "المحادثات" : "Conversations"}
+      </ThemedText>
+
+      {loading ? (
+        <ActivityIndicator size="large" color={SaleemColors.accent} style={{ marginTop: Spacing.xl }} />
+      ) : (
+        <FlatList
+          data={chats}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.lg, flexGrow: 1 }}
+          renderItem={({ item }) => (
+            <Pressable
+              onPress={() => navigation.navigate("DoctorChat", { chatId: item.id, chatName: item.patientName, patientId: item.patientId })}
+              style={[styles.chatItem, { backgroundColor: theme.cardBackground }]}
+              testID={`chat-item-${item.id}`}
+            >
+              <View style={[styles.chatAvatar, { backgroundColor: SaleemColors.accent + "20" }]}>
+                <Feather name="user" size={24} color={SaleemColors.accent} />
               </View>
-            </View>
-            
-            <Pressable onPress={handleGenerateCode} style={styles.regenerateButton}>
-              <Feather name="refresh-cw" size={16} color={SaleemColors.primary} />
-              <ThemedText type="button" style={{ color: SaleemColors.primary }}>
-                {language === "ar" ? "إنشاء رمز عشوائي" : "Generate Random Code"}
-              </ThemedText>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        visible={showNotesModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowNotesModal(false)}
-      >
-        <View style={[styles.modalContainer, { backgroundColor: theme.backgroundRoot }]}>
-          <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
-            <Pressable onPress={() => setShowNotesModal(false)}>
-              <ThemedText type="button" style={{ color: theme.textSecondary }}>
-                {language === "ar" ? "إلغاء" : "Cancel"}
-              </ThemedText>
-            </Pressable>
-            <ThemedText type="h4">
-              {language === "ar" ? "ملاحظات المريض" : "Patient Notes"}
-            </ThemedText>
-            <Pressable onPress={handleSaveNotes}>
-              <ThemedText type="button" style={{ color: SaleemColors.accent }}>
-                {language === "ar" ? "حفظ" : "Save"}
-              </ThemedText>
-            </Pressable>
-          </View>
-          
-          <View style={styles.notesModalContent}>
-            {selectedPatient ? (
-              <>
-                <View style={styles.patientHeader}>
-                  <View style={[styles.avatar, { backgroundColor: SaleemColors.primary + "20" }]}>
-                    <ThemedText type="h4" style={{ color: SaleemColors.primary }}>
-                      {selectedPatient.name.charAt(0)}
-                    </ThemedText>
-                  </View>
-                  <ThemedText type="h3">{selectedPatient.name}</ThemedText>
+              <View style={styles.chatInfo}>
+                <View style={styles.chatHeader}>
+                  <ThemedText type="h4" style={{ flex: 1 }} numberOfLines={1}>{item.patientName}</ThemedText>
+                  <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+                    {item.lastMessageAt ? new Date(item.lastMessageAt).toLocaleDateString([], { month: "short", day: "numeric" }) : ""}
+                  </ThemedText>
                 </View>
-                
-                <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: Spacing.sm }}>
-                  {language === "ar" ? "اكتب ملاحظاتك عن هذا المريض" : "Write your notes about this patient"}
-                </ThemedText>
-                
-                <TextInput
-                  style={[
-                    styles.notesTextArea,
-                    { 
-                      backgroundColor: theme.cardBackground, 
-                      color: theme.text,
-                      textAlign: isRTL ? "right" : "left",
-                    },
-                  ]}
-                  placeholder={language === "ar" ? "ملاحظات طبية، تاريخ المرض، تعليمات خاصة..." : "Medical notes, history, special instructions..."}
-                  placeholderTextColor={theme.textSecondary}
-                  value={notesInput}
-                  onChangeText={setNotesInput}
-                  multiline
-                  numberOfLines={8}
-                  textAlignVertical="top"
-                />
-              </>
-            ) : null}
-          </View>
-        </View>
-      </Modal>
+                <View style={styles.chatFooter}>
+                  <ThemedText type="small" style={{ color: theme.textSecondary, flex: 1 }} numberOfLines={1}>
+                    {item.lastMessage || (language === "ar" ? "محادثة جديدة" : "New conversation")}
+                  </ThemedText>
+                  {item.unreadCount > 0 ? (
+                    <View style={styles.badge}>
+                      <ThemedText type="caption" style={{ color: "#FFF", fontSize: 11 }}>{item.unreadCount}</ThemedText>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+            </Pressable>
+          )}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Feather name="inbox" size={48} color={theme.textSecondary} />
+              <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.md, textAlign: "center" }}>
+                {language === "ar" ? "لا توجد محادثات بعد. شارك رمز العيادة مع مرضاك" : "No conversations yet. Share your clinic code with patients"}
+              </ThemedText>
+            </View>
+          }
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1, paddingHorizontal: Spacing.lg },
   header: {
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.xl,
-    borderBottomLeftRadius: BorderRadius.xl,
-    borderBottomRightRadius: BorderRadius.xl,
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+    paddingVertical: Spacing.lg,
   },
-  headerContent: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: Spacing.lg,
-  },
-  headerButtons: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-  },
-  codeButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  headerLeft: {},
+  headerActions: { flexDirection: "row", gap: Spacing.sm },
+  iconBtn: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
   codeCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: Spacing.md,
-    borderRadius: BorderRadius.sm,
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+    padding: Spacing.xl, borderRadius: BorderRadius.md, marginBottom: Spacing.lg,
   },
-  codeLeft: {
-    flex: 1,
+  copyBtn: { alignItems: "center", gap: Spacing.xs },
+  statsRow: { flexDirection: "row", gap: Spacing.md, marginBottom: Spacing.xl },
+  statCard: { flex: 1, padding: Spacing.lg, borderRadius: BorderRadius.sm, alignItems: "center" },
+  sectionTitle: { marginBottom: Spacing.md },
+  chatItem: {
+    flexDirection: "row", padding: Spacing.lg, borderRadius: BorderRadius.sm,
+    marginBottom: Spacing.sm, gap: Spacing.md,
   },
-  copyButton: {
-    padding: Spacing.sm,
-  },
-  sectionTitle: {
-    marginTop: Spacing.lg,
-  },
-  patientCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: Spacing.md,
-    borderRadius: BorderRadius.sm,
-    marginBottom: Spacing.sm,
-    gap: Spacing.sm,
-  },
-  patientMainContent: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-  },
-  notesButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  notesIndicator: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginTop: 2,
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  patientInfo: {
-    flex: 1,
-  },
-  patientMeta: {
-    alignItems: "flex-end",
-    gap: Spacing.xs,
-  },
-  unreadBadge: {
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: Spacing.xs,
+  chatAvatar: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center" },
+  chatInfo: { flex: 1 },
+  chatHeader: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
+  chatFooter: { flexDirection: "row", alignItems: "center", marginTop: Spacing.xs },
+  badge: {
+    backgroundColor: SaleemColors.accent, minWidth: 20, height: 20, borderRadius: 10,
+    alignItems: "center", justifyContent: "center", paddingHorizontal: 6,
   },
   emptyState: {
-    alignItems: "center",
-    paddingVertical: Spacing["5xl"],
-  },
-  modalContainer: {
-    flex: 1,
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-  },
-  modalContent: {
-    flex: 1,
-    padding: Spacing.xl,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  codeDisplay: {
-    width: "100%",
-    padding: Spacing.xl,
-    borderRadius: BorderRadius.md,
-    alignItems: "center",
-  },
-  modalButtons: {
-    flexDirection: "row",
-    marginTop: Spacing.xl,
-    width: "100%",
-    gap: Spacing.md,
-  },
-  regenerateButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    marginTop: Spacing.lg,
-    padding: Spacing.md,
-  },
-  customCodeSection: {
-    width: "100%",
-    marginTop: Spacing.xl,
-    paddingTop: Spacing.xl,
-    borderTopWidth: 1,
-    alignItems: "center",
-  },
-  customCodeRow: {
-    flexDirection: "row",
-    width: "100%",
-    gap: Spacing.sm,
-  },
-  customCodeInput: {
-    flex: 1,
-    height: 48,
-    borderRadius: BorderRadius.sm,
-    paddingHorizontal: Spacing.lg,
-    fontSize: 18,
-    textAlign: "center",
-    letterSpacing: 2,
-    borderWidth: 2,
-  },
-  setCodeButton: {
-    width: 48,
-    height: 48,
-    borderRadius: BorderRadius.sm,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  notesModalContent: {
-    flex: 1,
-    padding: Spacing.xl,
-  },
-  patientHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-    marginBottom: Spacing.xl,
-  },
-  notesTextArea: {
-    flex: 1,
-    borderRadius: BorderRadius.sm,
-    padding: Spacing.lg,
-    fontSize: 16,
-    lineHeight: 24,
-    minHeight: 200,
+    flex: 1, alignItems: "center", justifyContent: "center",
+    paddingVertical: Spacing["5xl"], paddingHorizontal: Spacing.xl,
   },
 });

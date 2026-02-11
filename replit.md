@@ -1,64 +1,39 @@
 # Saleem (سليم) - Patient-Doctor Chat Portal
 
 ## Overview
-Saleem is a bilingual patient-doctor chat portal mobile app. The primary purpose is secure messaging between patients and doctors using clinic codes. Built with Expo React Native and Express.js backend.
+Saleem is a bilingual (Arabic/English) HIPAA-compliant patient-doctor chat portal mobile app for Saudi Arabia. Built with Expo React Native frontend and Express.js backend with PostgreSQL database. Features full email+password authentication, real-time chat via clinic codes, medical vault, doctor notes, and PDPL compliance.
 
 ## Project State
-- **Current Phase**: MVP Complete
-- **Last Updated**: January 2026
+- **Current Phase**: MVP Complete with full auth integration
+- **Last Updated**: February 2026
 
 ## Key Features
 
+### Authentication
+- Full email+password auth for both patients and doctors
+- JWT-based token authentication
+- Password validation: 8+ chars, 1 uppercase, 1 number, 1 special char
+- Doctor license verification system
+- PDPL consent required before patient registration
+- Auth state persisted via AsyncStorage
+
 ### Patient App
-1. **Streamlined Onboarding**
-   - Name input (required)
-   - Bilingual support (Arabic/English) with RTL layout
-   - PDPL consent screen (Saudi data protection compliance)
-   - Height/weight and medical history are optional (in Settings)
-
-2. **Messaging (Primary Feature)**
-   - Default tab when app loads
-   - Clinic code authentication to connect with doctor
-   - Real-time chat interface
-   - Connected to clinic indicator
-
-3. **Health Profile**
-   - Avatar display
-   - Health conditions badges
-   - Medications list
-   - Height/weight (optional)
-
-4. **Medical Vault**
-   - Secure file storage (Lab PDFs, Radiology images)
-   - Lock/unlock privacy controls
-
-5. **Settings**
-   - Language toggle (Arabic/English)
-   - Height/weight sliders
-   - Health conditions management
-   - Medications management
-   - Logout and delete data options
+1. **Messaging (Primary Feature)** - Default tab, clinic code entry to join doctor
+2. **Medical Vault** - File upload (lab results, radiology) via API
+3. **Health Profile** - Conditions badges, medications
+4. **Settings** - Language toggle, health data, logout
 
 ### Doctor Portal
-1. **Doctor Login**
-   - Name and specialty input
-   - Access via "Doctors" button on welcome screen
-
-2. **Doctor Dashboard**
-   - Clinic code display with copy functionality
-   - Generate new clinic code
-   - Patient list with last message preview
-   - Unread message badges
-
-3. **Doctor Chat**
-   - Chat interface with individual patients
-   - Message history
-   - Real-time messaging
+1. **Dashboard** - Auto-generated clinic code (6 chars), patient list, unread counts
+2. **Chat** - Real-time messaging with patients, private notes, patient blocking
+3. **Profile** - Bio, specialization, social links, license display
 
 ## Tech Stack
 - **Frontend**: Expo React Native (Expo Go compatible)
-- **Backend**: Express.js
-- **Storage**: AsyncStorage (local persistence)
+- **Backend**: Express.js with TypeScript
+- **Database**: PostgreSQL (Neon-backed via Replit)
+- **Auth**: JWT tokens + bcrypt password hashing
+- **Real-time**: Polling (3-5s intervals), Socket.io server ready
 - **Fonts**: Cairo (Google Fonts) for Arabic/English
 - **Navigation**: React Navigation 7+
 
@@ -68,38 +43,46 @@ Saleem is a bilingual patient-doctor chat portal mobile app. The primary purpose
 - Background: #F8F9FA
 - Error: #DC3545
 
+## API Endpoints (port 5000)
+- POST /api/patients/register, /api/patients/login
+- POST /api/doctors/register, /api/doctors/login
+- GET/PUT /api/doctors/me, /api/patients/me
+- POST /api/chats/join (clinicCode), GET /api/chats
+- GET/POST /api/chats/:chatId/messages
+- GET/PUT /api/doctors/notes/:patientId
+- POST /api/doctors/block/:patientId
+- POST /api/vault/upload, GET /api/vault, DELETE /api/vault/:fileId
+
 ## File Structure
 ```
 client/
-├── App.tsx                    # Main app with font loading
-├── components/
-│   ├── Avatar.tsx             # Dynamic health avatar
-│   ├── BodyMap.tsx            # Symptom body map
-│   ├── Button.tsx             # Themed button
-│   ├── Card.tsx               # Card component
-│   ├── Disclaimer.tsx         # Medical disclaimer
-│   ├── HealthBadge.tsx        # Health condition badges
-│   └── MedicationIcon.tsx     # Medication type icons
+├── App.tsx                       # Main app with providers
 ├── contexts/
-│   ├── LanguageContext.tsx    # Bilingual support
-│   └── UserContext.tsx        # User state management
-├── data/
-│   ├── healthConditions.ts    # 40+ health conditions
+│   ├── AuthContext.tsx            # JWT auth state (login/register/logout)
+│   ├── LanguageContext.tsx        # Bilingual support
+│   └── UserContext.tsx            # Local user preferences
 ├── navigation/
-│   ├── OnboardingNavigator.tsx  # Welcome + PDPL
-│   ├── MainTabNavigator.tsx     # Home, Messages, Vault, Settings
-│   ├── DoctorNavigator.tsx      # Doctor portal navigation
-│   └── RootStackNavigator.tsx
+│   ├── RootStackNavigator.tsx     # Auth-based routing (auth screens vs main app)
+│   ├── MainTabNavigator.tsx       # Patient tabs (Home, Messages, Vault, Settings)
+│   └── DoctorNavigator.tsx        # Doctor stack (Dashboard, Chat, Profile)
 └── screens/
-    ├── WelcomeScreen.tsx        # Name input + language + doctor access
-    ├── PDPLConsentScreen.tsx    # PDPL consent
-    ├── HomeScreen.tsx           # Avatar + health profile
-    ├── VaultScreen.tsx          # Medical files
-    ├── MessagesScreen.tsx       # Chat with clinic code auth
-    ├── SettingsScreen.tsx       # Settings + optional profile
-    ├── DoctorLoginScreen.tsx    # Doctor login
-    ├── DoctorDashboardScreen.tsx # Doctor dashboard
-    └── DoctorChatScreen.tsx     # Doctor chat with patient
+    ├── RoleSelectScreen.tsx       # Patient/Doctor role selection
+    ├── PatientLoginScreen.tsx     # Patient email+password login
+    ├── PatientRegisterScreen.tsx  # Patient registration with PDPL consent
+    ├── DoctorLoginScreen.tsx      # Doctor login
+    ├── DoctorRegisterScreen.tsx   # Doctor registration with license
+    ├── MessagesScreen.tsx         # Patient chat list + clinic code entry
+    ├── ChatScreen.tsx             # Patient chat (pushed to stack)
+    ├── DoctorDashboardScreen.tsx  # Doctor dashboard with clinic code
+    ├── DoctorChatScreen.tsx       # Doctor chat + notes + blocking
+    ├── DoctorProfileScreen.tsx    # Doctor profile editing
+    ├── VaultScreen.tsx            # Medical file upload/download
+    ├── SettingsScreen.tsx         # Settings with auth logout
+    └── HomeScreen.tsx             # Patient health profile
+server/
+├── routes.ts                     # All API endpoints + Socket.io
+├── auth.ts                       # JWT, bcrypt, middleware
+└── storage.ts                    # Database operations
 ```
 
 ## Running the App
@@ -110,16 +93,9 @@ client/
 ## User Preferences
 - Arabic is the primary language (RTL support)
 - Chat is the PRIMARY feature - Messages tab is default
-- Only NAME is mandatory during onboarding
-- Height/weight/medical history are optional (in Settings)
 - Medical-professional aesthetic
 - PDPL compliance required
-
-## Clinic Code System
-- Doctors generate unique 6-character codes (e.g., "ABC123")
-- Patients enter code to connect with their doctor
-- Code connects patient to specific clinic/doctor
-- Code can be regenerated by doctor
+- Doctors get auto-generated clinic codes (6 chars), can customize
 
 ## Design Guidelines
 See `design_guidelines.md` for complete design specifications.

@@ -1,443 +1,349 @@
-import React, { useState, useRef, useEffect } from "react";
-import { 
-  View, 
-  StyleSheet, 
-  FlatList, 
-  TextInput, 
-  Pressable, 
-  KeyboardAvoidingView,
-  Platform,
-  Modal,
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  View, StyleSheet, FlatList, Pressable, TextInput, Modal, ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import { useFocusEffect } from "@react-navigation/native";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
 import { Disclaimer } from "@/components/Disclaimer";
 import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useUser, Message } from "@/contexts/UserContext";
-import { Spacing, SaleemColors, BorderRadius, Shadows } from "@/constants/theme";
+import { useAuth } from "@/contexts/AuthContext";
+import { Spacing, SaleemColors, BorderRadius } from "@/constants/theme";
+import { getApiUrl } from "@/lib/query-client";
 
-export default function MessagesScreen() {
+interface ChatItem {
+  id: string;
+  doctorId: string;
+  patientId: string;
+  doctorName?: string;
+  patientName?: string;
+  lastMessage: string;
+  lastMessageAt: string;
+  unreadCount: number;
+}
+
+export default function MessagesScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
-  const { t, isRTL, language } = useLanguage();
-  const { user, addMessage, updateUser } = useUser();
-  
-  const [messageText, setMessageText] = useState("");
+  const { language, isRTL } = useLanguage();
+  const { user } = useAuth();
+
+  const [chats, setChats] = useState<ChatItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showCodeModal, setShowCodeModal] = useState(false);
-  const [clinicCodeInput, setClinicCodeInput] = useState("");
-  const flatListRef = useRef<FlatList>(null);
+  const [clinicCode, setClinicCode] = useState("");
+  const [codeError, setCodeError] = useState("");
+  const [joining, setJoining] = useState(false);
 
-  const hasClinicCode = !!user.clinicCode;
-
-  useEffect(() => {
-    if (!hasClinicCode) {
-      setShowCodeModal(true);
-    }
-  }, [hasClinicCode]);
-
-  const handleJoinClinic = () => {
-    if (clinicCodeInput.trim()) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      updateUser({ clinicCode: clinicCodeInput.trim().toUpperCase() });
-      setShowCodeModal(false);
-      setClinicCodeInput("");
-      
-      setTimeout(() => {
-        addMessage({
-          id: "",
-          text: language === "ar" 
-            ? "مرحباً بك! أنا طبيبك. كيف يمكنني مساعدتك اليوم؟" 
-            : "Welcome! I'm your doctor. How can I help you today?",
-          sender: "doctor",
-          timestamp: new Date().toISOString(),
-        });
-      }, 500);
-    }
-  };
-
-  const handleSendMessage = () => {
-    if (messageText.trim() && hasClinicCode) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      addMessage({
-        id: "",
-        text: messageText.trim(),
-        sender: "patient",
-        timestamp: new Date().toISOString(),
+  const fetchChats = useCallback(async () => {
+    if (!user) return;
+    try {
+      const baseUrl = getApiUrl();
+      const res = await fetch(new URL("/api/chats", baseUrl).href, {
+        headers: { Authorization: `Bearer ${user.token}` },
       });
-      setMessageText("");
-      
-      setTimeout(() => {
-        const responses = language === "ar" ? [
-          "شكراً لرسالتك. سأراجعها وأرد عليك قريباً.",
-          "تلقيت رسالتك. هل يمكنك تقديم المزيد من التفاصيل؟",
-          "فهمت. سأتابع معك خلال موعدنا القادم.",
-        ] : [
-          "Thank you for your message. I'll review it and get back to you soon.",
-          "I've received your message. Can you provide more details?",
-          "Understood. I'll follow up with you during our next appointment.",
-        ];
-        const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-        addMessage({
-          id: "",
-          text: randomResponse,
-          sender: "doctor",
-          timestamp: new Date().toISOString(),
+      if (res.ok) {
+        const data = await res.json();
+        setChats(data);
+      }
+    } catch (error) {
+      console.error("Error fetching chats:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchChats();
+      const interval = setInterval(fetchChats, 5000);
+      return () => clearInterval(interval);
+    }, [fetchChats])
+  );
+
+  const handleJoinClinic = async () => {
+    if (!clinicCode.trim() || !user) return;
+    setCodeError("");
+    setJoining(true);
+    try {
+      const baseUrl = getApiUrl();
+      const res = await fetch(new URL("/api/chats/join", baseUrl).href, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${user.token}`,
+        },
+        body: JSON.stringify({ clinicCode: clinicCode.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setCodeError(data.message || "Invalid code");
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setShowCodeModal(false);
+        setClinicCode("");
+        fetchChats();
+        navigation.navigate("Chat", {
+          chatId: data.chat.id,
+          chatName: data.doctorName,
         });
-      }, 1500);
+      }
+    } catch (error) {
+      setCodeError(language === "ar" ? "خطأ في الاتصال" : "Connection error");
+    } finally {
+      setJoining(false);
     }
   };
 
-  const renderMessage = ({ item }: { item: Message }) => {
-    const isPatient = item.sender === "patient";
+  const renderChat = ({ item }: { item: ChatItem }) => {
+    const name = user?.type === "patient" ? item.doctorName : item.patientName;
     return (
-      <Animated.View entering={FadeIn.duration(200)}>
-        <View
-          style={[
-            styles.messageBubble,
-            {
-              backgroundColor: isPatient ? SaleemColors.primary : theme.cardBackground,
-              alignSelf: isPatient ? "flex-end" : "flex-start",
-            },
-            Shadows.small,
-          ]}
-        >
-          {!isPatient ? (
-            <View style={styles.doctorLabel}>
-              <Feather name="user" size={12} color={SaleemColors.accent} />
-              <ThemedText type="caption" style={{ color: SaleemColors.accent }}>
-                {language === "ar" ? "الطبيب" : "Doctor"}
-              </ThemedText>
-            </View>
-          ) : null}
-          <ThemedText 
-            type="body" 
-            style={{ color: isPatient ? "#FFFFFF" : theme.text }}
-          >
-            {item.text}
-          </ThemedText>
-          <ThemedText 
-            type="caption" 
-            style={{ 
-              color: isPatient ? "rgba(255,255,255,0.7)" : theme.textSecondary,
-              marginTop: Spacing.xs,
-              textAlign: isPatient ? "right" : "left",
-            }}
-          >
-            {new Date(item.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-          </ThemedText>
+      <Pressable
+        onPress={() => navigation.navigate("Chat", { chatId: item.id, chatName: name })}
+        style={[styles.chatItem, { backgroundColor: theme.cardBackground }]}
+        testID={`chat-item-${item.id}`}
+      >
+        <View style={[styles.avatar, { backgroundColor: SaleemColors.primary + "20" }]}>
+          <Feather
+            name={user?.type === "patient" ? "briefcase" : "user"}
+            size={24}
+            color={SaleemColors.primary}
+          />
         </View>
-      </Animated.View>
+        <View style={styles.chatInfo}>
+          <View style={styles.chatHeader}>
+            <ThemedText type="h4" style={{ flex: 1 }} numberOfLines={1}>
+              {name || (language === "ar" ? "غير معروف" : "Unknown")}
+            </ThemedText>
+            {item.lastMessageAt ? (
+              <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+                {new Date(item.lastMessageAt).toLocaleDateString([], { month: "short", day: "numeric" })}
+              </ThemedText>
+            ) : null}
+          </View>
+          <View style={styles.chatFooter}>
+            <ThemedText type="small" style={{ color: theme.textSecondary, flex: 1 }} numberOfLines={1}>
+              {item.lastMessage || (language === "ar" ? "ابدأ المحادثة" : "Start chatting")}
+            </ThemedText>
+            {item.unreadCount > 0 ? (
+              <View style={styles.badge}>
+                <ThemedText type="caption" style={{ color: "#FFF", fontSize: 11 }}>
+                  {item.unreadCount}
+                </ThemedText>
+              </View>
+            ) : null}
+          </View>
+        </View>
+      </Pressable>
     );
   };
 
+  if (loading) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: theme.backgroundRoot }]}>
+        <ActivityIndicator size="large" color={SaleemColors.accent} />
+      </View>
+    );
+  }
+
   return (
-    <KeyboardAvoidingView 
-      style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={headerHeight}
-    >
+    <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       <FlatList
-        ref={flatListRef}
-        data={user.messages}
+        data={chats}
         keyExtractor={(item) => item.id}
-        renderItem={renderMessage}
+        renderItem={renderChat}
         contentContainerStyle={{
-          paddingTop: headerHeight + Spacing.lg,
-          paddingBottom: Spacing.lg,
+          paddingTop: headerHeight + Spacing.md,
+          paddingBottom: tabBarHeight + Spacing.lg,
           paddingHorizontal: Spacing.lg,
           flexGrow: 1,
         }}
         ListHeaderComponent={
-          <View style={{ marginBottom: Spacing.lg }}>
+          <View style={{ marginBottom: Spacing.md }}>
             <Disclaimer />
-            
-            {hasClinicCode ? (
-              <Animated.View 
-                entering={FadeInDown.delay(100).duration(500)}
-                style={[styles.clinicHeader, { backgroundColor: SaleemColors.accent + "15" }]}
-              >
-                <Feather name="shield" size={20} color={SaleemColors.accent} />
-                <View style={{ flex: 1 }}>
-                  <ThemedText type="small" style={{ color: SaleemColors.accent }}>
-                    {language === "ar" ? "متصل بالعيادة" : "Connected to Clinic"}
-                  </ThemedText>
-                  <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-                    {language === "ar" ? `رمز: ${user.clinicCode}` : `Code: ${user.clinicCode}`}
-                  </ThemedText>
-                </View>
-                <Pressable 
-                  onPress={() => setShowCodeModal(true)}
-                  style={styles.changeButton}
-                >
-                  <ThemedText type="caption" style={{ color: SaleemColors.primary }}>
-                    {language === "ar" ? "تغيير" : "Change"}
-                  </ThemedText>
-                </Pressable>
-              </Animated.View>
-            ) : null}
           </View>
         }
         ListEmptyComponent={
-          hasClinicCode ? (
-            <View style={styles.emptyChat}>
-              <Feather name="message-circle" size={48} color={theme.textSecondary} />
-              <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.md, textAlign: "center" }}>
-                {language === "ar" ? "ابدأ محادثة مع طبيبك" : "Start a conversation with your doctor"}
-              </ThemedText>
+          <View style={styles.emptyState}>
+            <View style={[styles.emptyIcon, { backgroundColor: SaleemColors.accent + "15" }]}>
+              <Feather name="message-circle" size={40} color={SaleemColors.accent} />
             </View>
-          ) : (
-            <View style={styles.emptyChat}>
-              <View style={[styles.lockIcon, { backgroundColor: SaleemColors.warning + "20" }]}>
-                <Feather name="lock" size={32} color={SaleemColors.warning} />
-              </View>
-              <ThemedText type="h4" style={{ marginTop: Spacing.lg, textAlign: "center" }}>
-                {language === "ar" ? "أدخل رمز الطبيب" : "Enter Doctor Code"}
-              </ThemedText>
-              <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.sm }}>
-                {language === "ar" 
-                  ? "احصل على رمز العيادة من طبيبك لبدء المحادثة" 
-                  : "Get the clinic code from your doctor to start chatting"}
-              </ThemedText>
+            <ThemedText type="h3" style={{ marginTop: Spacing.xl, textAlign: "center" }}>
+              {language === "ar" ? "لا توجد محادثات بعد" : "No Chats Yet"}
+            </ThemedText>
+            <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.sm }}>
+              {user?.type === "patient"
+                ? (language === "ar" ? "أدخل رمز الطبيب لبدء المحادثة" : "Enter a doctor's code to start chatting")
+                : (language === "ar" ? "شارك رمز العيادة مع مرضاك" : "Share your clinic code with patients")}
+            </ThemedText>
+            {user?.type === "patient" ? (
               <Button
                 onPress={() => setShowCodeModal(true)}
                 variant="primary"
                 style={{ marginTop: Spacing.xl }}
+                testID="button-enter-code"
               >
-                {language === "ar" ? "إدخال الرمز" : "Enter Code"}
+                {language === "ar" ? "إدخال رمز الطبيب" : "Enter Doctor Code"}
               </Button>
-            </View>
-          )
+            ) : null}
+          </View>
         }
-        onContentSizeChange={() => {
-          if (user.messages.length > 0) {
-            flatListRef.current?.scrollToEnd({ animated: true });
-          }
-        }}
       />
 
-      {hasClinicCode ? (
-        <View 
-          style={[
-            styles.inputContainer, 
-            { 
-              backgroundColor: theme.backgroundRoot,
-              paddingBottom: tabBarHeight + Spacing.sm,
-              borderTopColor: theme.border,
-            },
-          ]}
+      {user?.type === "patient" ? (
+        <Pressable
+          onPress={() => setShowCodeModal(true)}
+          style={[styles.fab, { bottom: tabBarHeight + Spacing.lg }]}
+          testID="button-new-chat"
         >
-          <View 
-            style={[
-              styles.inputRow,
-              { backgroundColor: theme.cardBackground },
-            ]}
-          >
-            <TextInput
-              style={[
-                styles.input,
-                { color: theme.text, textAlign: isRTL ? "right" : "left" },
-              ]}
-              placeholder={language === "ar" ? "اكتب رسالة..." : "Type a message..."}
-              placeholderTextColor={theme.textSecondary}
-              value={messageText}
-              onChangeText={setMessageText}
-              multiline
-            />
-            <Pressable
-              onPress={handleSendMessage}
-              disabled={!messageText.trim()}
-              style={[
-                styles.sendButton,
-                { backgroundColor: SaleemColors.accent, opacity: messageText.trim() ? 1 : 0.5 },
-              ]}
-            >
-              <Feather name="send" size={20} color="#FFFFFF" />
-            </Pressable>
-          </View>
-        </View>
+          <Feather name="plus" size={24} color="#FFF" />
+        </Pressable>
       ) : null}
 
       <Modal
         visible={showCodeModal}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => hasClinicCode && setShowCodeModal(false)}
+        onRequestClose={() => setShowCodeModal(false)}
       >
         <View style={[styles.modalContainer, { backgroundColor: theme.backgroundRoot }]}>
           <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
-            {hasClinicCode ? (
-              <Pressable onPress={() => setShowCodeModal(false)}>
-                <ThemedText type="button" style={{ color: theme.textSecondary }}>
-                  {t("cancel")}
-                </ThemedText>
-              </Pressable>
-            ) : (
-              <View />
-            )}
-            <ThemedText type="h4">{t("clinicCode")}</ThemedText>
+            <Pressable onPress={() => setShowCodeModal(false)}>
+              <ThemedText type="button" style={{ color: theme.textSecondary }}>
+                {language === "ar" ? "إلغاء" : "Cancel"}
+              </ThemedText>
+            </Pressable>
+            <ThemedText type="h4">
+              {language === "ar" ? "رمز العيادة" : "Clinic Code"}
+            </ThemedText>
             <View style={{ width: 60 }} />
           </View>
-          
+
           <View style={styles.modalContent}>
-            <View style={styles.codeIconContainer}>
+            <View style={[styles.codeIconContainer, { backgroundColor: SaleemColors.primary + "15" }]}>
               <Feather name="key" size={48} color={SaleemColors.primary} />
             </View>
-            
+
             <ThemedText type="h3" style={{ textAlign: "center", marginTop: Spacing.xl }}>
               {language === "ar" ? "أدخل رمز العيادة" : "Enter Clinic Code"}
             </ThemedText>
-            
+
             <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.sm }}>
-              {language === "ar" 
-                ? "احصل على هذا الرمز من طبيبك أو العيادة" 
+              {language === "ar"
+                ? "احصل على هذا الرمز من طبيبك أو العيادة"
                 : "Get this code from your doctor or clinic"}
             </ThemedText>
-            
+
+            {codeError ? (
+              <View style={[styles.errorBox, { marginTop: Spacing.lg }]}>
+                <Feather name="alert-circle" size={16} color={SaleemColors.error} />
+                <ThemedText type="small" style={{ color: SaleemColors.error }}>{codeError}</ThemedText>
+              </View>
+            ) : null}
+
             <TextInput
               style={[
                 styles.codeInput,
-                { 
-                  backgroundColor: theme.cardBackground, 
+                {
+                  backgroundColor: theme.cardBackground,
                   color: theme.text,
-                  borderColor: clinicCodeInput ? SaleemColors.accent : theme.border,
+                  borderColor: clinicCode ? SaleemColors.accent : theme.border,
                 },
               ]}
               placeholder="ABC123"
               placeholderTextColor={theme.textSecondary}
-              value={clinicCodeInput}
-              onChangeText={(text) => setClinicCodeInput(text.toUpperCase())}
+              value={clinicCode}
+              onChangeText={(t) => setClinicCode(t.toUpperCase())}
               autoCapitalize="characters"
               maxLength={10}
+              testID="input-clinic-code"
             />
-            
+
             <Button
               onPress={handleJoinClinic}
               variant="primary"
               size="large"
-              disabled={!clinicCodeInput.trim()}
-              style={{ marginTop: Spacing.xl }}
+              loading={joining}
+              disabled={!clinicCode.trim()}
+              style={{ marginTop: Spacing.xl, width: "100%" }}
+              testID="button-join"
             >
-              {t("joinClinic")}
+              {language === "ar" ? "انضم" : "Join"}
             </Button>
           </View>
         </View>
       </Modal>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  clinicHeader: {
+  container: { flex: 1 },
+  loadingContainer: { flex: 1, alignItems: "center", justifyContent: "center" },
+  chatItem: {
     flexDirection: "row",
-    alignItems: "center",
-    padding: Spacing.md,
-    borderRadius: BorderRadius.sm,
-    marginTop: Spacing.md,
-    gap: Spacing.md,
-  },
-  changeButton: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-  },
-  emptyChat: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: Spacing["5xl"],
-    paddingHorizontal: Spacing.xl,
-  },
-  lockIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  messageBubble: {
-    maxWidth: "80%",
-    padding: Spacing.md,
+    padding: Spacing.lg,
     borderRadius: BorderRadius.sm,
     marginBottom: Spacing.sm,
+    gap: Spacing.md,
   },
-  doctorLabel: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-    marginBottom: Spacing.xs,
+  avatar: {
+    width: 48, height: 48, borderRadius: 24,
+    alignItems: "center", justifyContent: "center",
   },
-  inputContainer: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.sm,
-    borderTopWidth: 1,
+  chatInfo: { flex: 1 },
+  chatHeader: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
+  chatFooter: { flexDirection: "row", alignItems: "center", marginTop: Spacing.xs },
+  badge: {
+    backgroundColor: SaleemColors.accent,
+    minWidth: 20, height: 20, borderRadius: 10,
+    alignItems: "center", justifyContent: "center",
+    paddingHorizontal: 6,
   },
-  inputRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    gap: Spacing.sm,
+  emptyState: {
+    flex: 1, alignItems: "center", justifyContent: "center",
+    paddingVertical: Spacing["5xl"], paddingHorizontal: Spacing.xl,
   },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    maxHeight: 100,
-    paddingVertical: Spacing.xs,
+  emptyIcon: {
+    width: 80, height: 80, borderRadius: 40,
+    alignItems: "center", justifyContent: "center",
   },
-  sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
+  fab: {
+    position: "absolute", right: Spacing.xl,
+    width: 56, height: 56, borderRadius: 28,
+    backgroundColor: SaleemColors.accent,
+    alignItems: "center", justifyContent: "center",
   },
-  modalContainer: {
-    flex: 1,
-  },
+  modalContainer: { flex: 1 },
   modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, borderBottomWidth: 1,
   },
   modalContent: {
-    flex: 1,
-    padding: Spacing.xl,
-    alignItems: "center",
-    justifyContent: "center",
+    flex: 1, padding: Spacing.xl, alignItems: "center", justifyContent: "center",
   },
   codeIconContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: SaleemColors.primary + "15",
-    alignItems: "center",
-    justifyContent: "center",
+    width: 100, height: 100, borderRadius: 50,
+    alignItems: "center", justifyContent: "center",
   },
   codeInput: {
-    width: "100%",
-    height: 60,
-    borderRadius: BorderRadius.sm,
-    paddingHorizontal: Spacing.xl,
-    fontSize: 24,
-    textAlign: "center",
-    letterSpacing: 4,
-    marginTop: Spacing.xl,
-    borderWidth: 2,
+    width: "100%", height: 60, borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.xl, fontSize: 24, textAlign: "center",
+    letterSpacing: 4, marginTop: Spacing.xl, borderWidth: 2,
+  },
+  errorBox: {
+    flexDirection: "row", alignItems: "center", gap: Spacing.sm,
+    padding: Spacing.md, backgroundColor: SaleemColors.error + "15",
+    borderRadius: BorderRadius.xs,
   },
 });

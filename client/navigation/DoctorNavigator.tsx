@@ -1,17 +1,16 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
-import DoctorLoginScreen from "@/screens/DoctorLoginScreen";
 import DoctorDashboardScreen from "@/screens/DoctorDashboardScreen";
 import DoctorChatScreen from "@/screens/DoctorChatScreen";
+import DoctorProfileScreen from "@/screens/DoctorProfileScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { SaleemColors } from "@/constants/theme";
 
 export type DoctorStackParamList = {
-  DoctorLogin: undefined;
-  DoctorDashboard: { doctorName: string; specialty: string };
-  DoctorChat: { patientName: string; patientId: string };
+  DoctorDashboard: undefined;
+  DoctorChat: { chatId: string; chatName: string; patientId: string };
+  DoctorProfile: undefined;
 };
 
 const Stack = createNativeStackNavigator<DoctorStackParamList>();
@@ -23,16 +22,9 @@ export default function DoctorNavigator() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen
-        name="DoctorLogin"
-        component={DoctorLoginScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
         name="DoctorDashboard"
         component={DoctorDashboardScreen}
-        options={{ 
-          headerShown: false,
-        }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="DoctorChat"
@@ -41,6 +33,11 @@ export default function DoctorNavigator() {
           headerTitle: language === "ar" ? "محادثة" : "Chat",
           headerBackTitle: "",
         }}
+      />
+      <Stack.Screen
+        name="DoctorProfile"
+        component={DoctorProfileScreen}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );

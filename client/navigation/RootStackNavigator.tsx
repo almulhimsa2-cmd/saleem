@@ -2,35 +2,82 @@ import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import MainTabNavigator from "@/navigation/MainTabNavigator";
-import OnboardingNavigator from "@/navigation/OnboardingNavigator";
 import DoctorNavigator from "@/navigation/DoctorNavigator";
+import RoleSelectScreen from "@/screens/RoleSelectScreen";
+import PatientLoginScreen from "@/screens/PatientLoginScreen";
+import PatientRegisterScreen from "@/screens/PatientRegisterScreen";
+import DoctorLoginScreen from "@/screens/DoctorLoginScreen";
+import DoctorRegisterScreen from "@/screens/DoctorRegisterScreen";
+import ChatScreen from "@/screens/ChatScreen";
+import PDPLConsentScreen from "@/screens/PDPLConsentScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
-import { useUser } from "@/contexts/UserContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { View, ActivityIndicator, StyleSheet } from "react-native";
+import { SaleemColors } from "@/constants/theme";
 
 export type RootStackParamList = {
-  Onboarding: undefined;
-  Main: undefined;
-  Doctor: undefined;
+  RoleSelect: undefined;
+  PatientLogin: undefined;
+  PatientRegister: undefined;
+  DoctorLogin: undefined;
+  DoctorRegister: undefined;
+  PDPLConsent: { role: "patient" | "doctor" };
+  MainTabs: undefined;
+  DoctorTabs: undefined;
+  Chat: { chatId: string; chatName: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootStackNavigator() {
   const screenOptions = useScreenOptions();
-  const { user, isLoading } = useUser();
+  const { user, isLoading } = useAuth();
+  const { language } = useLanguage();
 
   if (isLoading) {
-    return null;
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" color={SaleemColors.accent} />
+      </View>
+    );
   }
 
   return (
     <Stack.Navigator screenOptions={{ ...screenOptions, headerShown: false }}>
-      {!user.onboardingComplete ? (
-        <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
+      {user ? (
+        user.type === "doctor" ? (
+          <>
+            <Stack.Screen name="DoctorTabs" component={DoctorNavigator} />
+          </>
+        ) : (
+          <>
+            <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+            <Stack.Screen
+              name="Chat"
+              component={ChatScreen}
+              options={{
+                headerShown: true,
+                headerBackTitle: "",
+                headerTitle: language === "ar" ? "محادثة" : "Chat",
+              }}
+            />
+          </>
+        )
       ) : (
-        <Stack.Screen name="Main" component={MainTabNavigator} />
+        <>
+          <Stack.Screen name="RoleSelect" component={RoleSelectScreen} />
+          <Stack.Screen name="PatientLogin" component={PatientLoginScreen} options={{ headerShown: true, headerBackTitle: "", headerTitle: language === "ar" ? "تسجيل الدخول" : "Login" }} />
+          <Stack.Screen name="PatientRegister" component={PatientRegisterScreen} options={{ headerShown: true, headerBackTitle: "", headerTitle: language === "ar" ? "تسجيل جديد" : "Register" }} />
+          <Stack.Screen name="DoctorLogin" component={DoctorLoginScreen} options={{ headerShown: true, headerBackTitle: "", headerTitle: language === "ar" ? "دخول الطبيب" : "Doctor Login" }} />
+          <Stack.Screen name="DoctorRegister" component={DoctorRegisterScreen} options={{ headerShown: true, headerBackTitle: "", headerTitle: language === "ar" ? "تسجيل طبيب" : "Doctor Register" }} />
+          <Stack.Screen name="PDPLConsent" component={PDPLConsentScreen} options={{ headerShown: true, headerBackTitle: "", headerTitle: language === "ar" ? "حماية البيانات" : "Data Protection" }} />
+        </>
       )}
-      <Stack.Screen name="Doctor" component={DoctorNavigator} />
     </Stack.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  loading: { flex: 1, justifyContent: "center", alignItems: "center" },
+});

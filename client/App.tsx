@@ -15,6 +15,7 @@ import RootStackNavigator from "@/navigation/RootStackNavigator";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { UserProvider } from "@/contexts/UserContext";
+import { AuthProvider } from "@/contexts/AuthContext";
 import { SaleemColors } from "@/constants/theme";
 
 SplashScreen.preventAutoHideAsync();
@@ -41,24 +42,26 @@ export default function App() {
   }
 
   return (
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <SafeAreaProvider>
-          <GestureHandlerRootView style={styles.root}>
-            <KeyboardProvider>
-              <LanguageProvider>
+    <QueryClientProvider client={queryClient}>
+      <SafeAreaProvider>
+        <GestureHandlerRootView style={styles.root}>
+          <KeyboardProvider>
+            <LanguageProvider>
+              <AuthProvider>
                 <UserProvider>
-                  <NavigationContainer>
-                    <RootStackNavigator />
-                  </NavigationContainer>
+                  <ErrorBoundary>
+                    <NavigationContainer>
+                      <RootStackNavigator />
+                    </NavigationContainer>
+                  </ErrorBoundary>
                   <StatusBar style="auto" />
                 </UserProvider>
-              </LanguageProvider>
-            </KeyboardProvider>
-          </GestureHandlerRootView>
-        </SafeAreaProvider>
-      </QueryClientProvider>
-    </ErrorBoundary>
+              </AuthProvider>
+            </LanguageProvider>
+          </KeyboardProvider>
+        </GestureHandlerRootView>
+      </SafeAreaProvider>
+    </QueryClientProvider>
   );
 }
 

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet, TextInput, ScrollView, Pressable, Image } from "react-native";
+import { View, StyleSheet, TextInput, ScrollView, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
@@ -13,7 +13,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, SaleemColors, BorderRadius } from "@/constants/theme";
 
-export default function DoctorLoginScreen({ navigation }: any) {
+export default function PatientLoginScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
   const { theme, isDark } = useTheme();
   const { language, isRTL } = useLanguage();
@@ -32,7 +32,7 @@ export default function DoctorLoginScreen({ navigation }: any) {
       return;
     }
     setLoading(true);
-    const result = await login("doctor", email.trim(), password);
+    const result = await login("patient", email.trim(), password);
     setLoading(false);
     if (!result.success) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -44,33 +44,24 @@ export default function DoctorLoginScreen({ navigation }: any) {
 
   return (
     <LinearGradient
-      colors={isDark ? ["#0D1117", "#1A365D"] : [SaleemColors.primary, "#1A365D"]}
+      colors={isDark ? ["#0D1117", "#1A365D"] : ["#F8F9FA", "#E2E8F0"]}
       style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Feather name={isRTL ? "arrow-right" : "arrow-left"} size={24} color="#FFF" />
+          <Feather name={isRTL ? "arrow-right" : "arrow-left"} size={24} color={theme.text} />
         </Pressable>
 
         <Animated.View entering={FadeInDown.delay(100).duration(600)} style={styles.header}>
-          <Image
-            source={require("../../assets/images/icon.png")}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-          <ThemedText type="h1" style={styles.title}>
-            {language === "ar" ? "بوابة الطبيب" : "Doctor Portal"}
-          </ThemedText>
-          <ThemedText type="body" style={styles.subtitle}>
-            Saleem سليم
+          <View style={[styles.iconContainer, { backgroundColor: SaleemColors.accent + "20" }]}>
+            <Feather name="user" size={40} color={SaleemColors.accent} />
+          </View>
+          <ThemedText type="h2" style={{ textAlign: "center", marginTop: Spacing.lg }}>
+            {language === "ar" ? "تسجيل دخول المريض" : "Patient Login"}
           </ThemedText>
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(200).duration(600)} style={[styles.form, { backgroundColor: theme.cardBackground }]}>
-          <ThemedText type="h3" style={[styles.formTitle, { color: theme.text }]}>
-            {language === "ar" ? "تسجيل الدخول" : "Sign In"}
-          </ThemedText>
-
           {error ? (
             <View style={styles.errorBox}>
               <Feather name="alert-circle" size={16} color={SaleemColors.error} />
@@ -84,7 +75,7 @@ export default function DoctorLoginScreen({ navigation }: any) {
             </ThemedText>
             <TextInput
               style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text, textAlign: isRTL ? "right" : "left" }]}
-              placeholder="doctor@email.com"
+              placeholder={language === "ar" ? "patient@email.com" : "patient@email.com"}
               placeholderTextColor={theme.textSecondary}
               value={email}
               onChangeText={setEmail}
@@ -114,16 +105,16 @@ export default function DoctorLoginScreen({ navigation }: any) {
             </View>
           </View>
 
-          <Button onPress={handleLogin} variant="primary" size="large" loading={loading} testID="button-login" style={{ marginTop: Spacing.sm }}>
-            {language === "ar" ? "دخول" : "Sign In"}
+          <Button onPress={handleLogin} variant="primary" size="large" loading={loading} testID="button-login">
+            {language === "ar" ? "تسجيل الدخول" : "Sign In"}
           </Button>
 
-          <Pressable onPress={() => navigation.navigate("DoctorRegister")} style={styles.linkRow}>
+          <Pressable onPress={() => navigation.navigate("PatientRegister")} style={styles.linkRow}>
             <ThemedText type="small" style={{ color: theme.textSecondary }}>
-              {language === "ar" ? "ليس لديك حساب؟" : "New doctor?"}
+              {language === "ar" ? "ليس لديك حساب؟" : "Don't have an account?"}
             </ThemedText>
             <ThemedText type="link" style={{ color: SaleemColors.accent }}>
-              {language === "ar" ? " إنشاء حساب" : " Register"}
+              {language === "ar" ? " إنشاء حساب" : " Sign Up"}
             </ThemedText>
           </Pressable>
         </Animated.View>
@@ -136,12 +127,9 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: { paddingHorizontal: Spacing.xl, paddingBottom: Spacing["3xl"], flexGrow: 1, justifyContent: "center" },
   backBtn: { position: "absolute", top: Spacing.lg, left: 0, padding: Spacing.sm, zIndex: 10 },
-  header: { alignItems: "center", marginBottom: Spacing["3xl"] },
-  logo: { width: 80, height: 80, borderRadius: 20, marginBottom: Spacing.lg },
-  title: { color: "#FFFFFF", textAlign: "center" },
-  subtitle: { color: "rgba(255,255,255,0.7)", marginTop: Spacing.xs },
+  header: { alignItems: "center", marginBottom: Spacing.xl },
+  iconContainer: { width: 80, height: 80, borderRadius: 40, alignItems: "center", justifyContent: "center" },
   form: { padding: Spacing.xl, borderRadius: BorderRadius.md },
-  formTitle: { textAlign: "center", marginBottom: Spacing.xl },
   errorBox: { flexDirection: "row", alignItems: "center", gap: Spacing.sm, padding: Spacing.md, backgroundColor: SaleemColors.error + "15", borderRadius: BorderRadius.xs, marginBottom: Spacing.lg },
   inputGroup: { marginBottom: Spacing.lg },
   input: { height: 52, borderRadius: BorderRadius.sm, paddingHorizontal: Spacing.lg, fontSize: 16, marginTop: Spacing.sm },
