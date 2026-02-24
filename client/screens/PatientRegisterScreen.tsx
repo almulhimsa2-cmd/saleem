@@ -29,6 +29,8 @@ export default function PatientRegisterScreen({ navigation }: any) {
   const [pwErrors, setPwErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [pdplConsent, setPdplConsent] = useState(false);
+  const [termsConsent, setTermsConsent] = useState(false);
+  const [privacyConsent, setPrivacyConsent] = useState(false);
 
   const validatePw = (pw: string) => {
     const errs: string[] = [];
@@ -55,6 +57,14 @@ export default function PatientRegisterScreen({ navigation }: any) {
       setError(language === "ar" ? "يجب الموافقة على سياسة حماية البيانات" : "You must agree to the PDPL data policy");
       return;
     }
+    if (!termsConsent) {
+      setError(language === "ar" ? "يجب الموافقة على الشروط والأحكام" : "You must agree to Terms & Conditions");
+      return;
+    }
+    if (!privacyConsent) {
+      setError(language === "ar" ? "يجب الموافقة على سياسة الخصوصية" : "You must agree to Privacy Policy");
+      return;
+    }
     setLoading(true);
     const result = await registerPatient({ fullName: fullName.trim(), email: email.trim(), password, phone: phone.trim() || undefined });
     setLoading(false);
@@ -63,6 +73,7 @@ export default function PatientRegisterScreen({ navigation }: any) {
       setError(result.error || "Registration failed");
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      navigation.navigate("EmailVerification", { email: result.email || email.trim(), userType: "patient" });
     }
   };
 
@@ -187,6 +198,28 @@ export default function PatientRegisterScreen({ navigation }: any) {
               {language === "ar"
                 ? "أوافق على شروط معالجة البيانات وفقاً لنظام حماية البيانات الشخصية السعودي (PDPL)"
                 : "I agree to data processing terms under Saudi PDPL"}
+            </ThemedText>
+          </Pressable>
+
+          <Pressable onPress={() => setTermsConsent(!termsConsent)} style={styles.consentRow}>
+            <View style={[styles.checkbox, termsConsent && { backgroundColor: SaleemColors.accent, borderColor: SaleemColors.accent }]}>
+              {termsConsent ? <Feather name="check" size={14} color="#FFF" /> : null}
+            </View>
+            <ThemedText type="small" style={{ flex: 1, color: theme.textSecondary }}>
+              {language === "ar"
+                ? "أوافق على الشروط والأحكام"
+                : "I agree to Terms & Conditions"}
+            </ThemedText>
+          </Pressable>
+
+          <Pressable onPress={() => setPrivacyConsent(!privacyConsent)} style={styles.consentRow}>
+            <View style={[styles.checkbox, privacyConsent && { backgroundColor: SaleemColors.accent, borderColor: SaleemColors.accent }]}>
+              {privacyConsent ? <Feather name="check" size={14} color="#FFF" /> : null}
+            </View>
+            <ThemedText type="small" style={{ flex: 1, color: theme.textSecondary }}>
+              {language === "ar"
+                ? "أوافق على سياسة الخصوصية"
+                : "I agree to Privacy Policy"}
             </ThemedText>
           </Pressable>
 

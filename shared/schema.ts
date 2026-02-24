@@ -17,6 +17,8 @@ export const doctors = pgTable("doctors", {
   licenseExpiry: text("license_expiry"),
   verified: boolean("verified").default(false),
   verificationStatus: text("verification_status").default("pending"),
+  emailVerified: boolean("email_verified").default(false),
+  emailVerifiedAt: timestamp("email_verified_at"),
   bio: text("bio"),
   profilePictureUrl: text("profile_picture_url"),
   youtubeLink: text("youtube_link"),
@@ -34,8 +36,8 @@ export const patients = pgTable("patients", {
   password: text("password").notNull(),
   fullName: text("full_name").notNull(),
   phone: text("phone"),
-  height: integer("height"),
-  weight: integer("weight"),
+  emailVerified: boolean("email_verified").default(false),
+  emailVerifiedAt: timestamp("email_verified_at"),
   pdplConsent: boolean("pdpl_consent").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -73,16 +75,30 @@ export const doctorNotes = pgTable("doctor_notes", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const vaultFiles = pgTable("vault_files", {
+export const emailVerifications = pgTable("email_verifications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  patientId: varchar("patient_id").notNull(),
-  type: text("type").notNull(),
-  fileName: text("file_name").notNull(),
-  fileUrl: text("file_url").notNull(),
-  mimeType: text("mime_type"),
-  fileSize: integer("file_size"),
-  sharedWith: jsonb("shared_with").$type<string[]>().default([]),
-  uploadedAt: timestamp("uploaded_at").defaultNow(),
+  userId: varchar("user_id").notNull(),
+  userType: text("user_type").notNull(),
+  email: text("email").notNull(),
+  codeHash: text("code_hash").notNull(),
+  codeExpiresAt: timestamp("code_expires_at").notNull(),
+  verifiedAt: timestamp("verified_at"),
+  attempts: integer("attempts").default(0),
+  maxAttempts: integer("max_attempts").default(5),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const userAgreements = pgTable("user_agreements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  userType: text("user_type").notNull(),
+  agreedToTerms: boolean("agreed_to_terms").default(false),
+  termsAgreedAt: timestamp("terms_agreed_at"),
+  termsVersion: text("terms_version").default("1.0"),
+  agreedToPrivacy: boolean("agreed_to_privacy").default(false),
+  privacyAgreedAt: timestamp("privacy_agreed_at"),
+  privacyVersion: text("privacy_version").default("1.0"),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const insertDoctorSchema = createInsertSchema(doctors).pick({
@@ -119,4 +135,5 @@ export type Chat = typeof chats.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type DoctorNote = typeof doctorNotes.$inferSelect;
-export type VaultFile = typeof vaultFiles.$inferSelect;
+export type EmailVerification = typeof emailVerifications.$inferSelect;
+export type UserAgreement = typeof userAgreements.$inferSelect;

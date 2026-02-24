@@ -1,11 +1,11 @@
-import { eq, and, desc, or, sql } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { db } from "./db";
 import {
-  doctors, patients, chats, messages, doctorNotes, vaultFiles,
+  doctors, patients, chats, messages, doctorNotes, emailVerifications, userAgreements,
   type Doctor, type InsertDoctor,
   type Patient, type InsertPatient,
   type Chat, type Message, type InsertMessage,
-  type DoctorNote, type VaultFile,
+  type DoctorNote, type EmailVerification, type UserAgreement,
 } from "../shared/schema";
 
 export async function createDoctor(data: InsertDoctor & { password: string }): Promise<Doctor> {
@@ -149,27 +149,6 @@ export async function getDoctorNotes(doctorId: string, patientId: string): Promi
   return note;
 }
 
-export async function createVaultFile(data: Partial<VaultFile>): Promise<VaultFile> {
-  const [file] = await db.insert(vaultFiles).values(data as any).returning();
-  return file;
-}
-
-export async function getVaultFiles(patientId: string, type?: string): Promise<VaultFile[]> {
-  if (type) {
-    return db.select().from(vaultFiles).where(
-      and(eq(vaultFiles.patientId, patientId), eq(vaultFiles.type, type))
-    ).orderBy(desc(vaultFiles.uploadedAt));
-  }
-  return db.select().from(vaultFiles).where(eq(vaultFiles.patientId, patientId)).orderBy(desc(vaultFiles.uploadedAt));
-}
-
-export async function deleteVaultFile(id: string, patientId: string): Promise<boolean> {
-  const result = await db.delete(vaultFiles).where(
-    and(eq(vaultFiles.id, id), eq(vaultFiles.patientId, patientId))
-  );
-  return true;
-}
-
 export async function blockPatient(doctorId: string, patientId: string): Promise<void> {
   const doctor = await getDoctorById(doctorId);
   if (!doctor) return;
@@ -191,4 +170,61 @@ export async function isPatientBlocked(doctorId: string, patientId: string): Pro
   const doctor = await getDoctorById(doctorId);
   if (!doctor) return false;
   return ((doctor.blockedPatients as string[]) || []).includes(patientId);
+}
+
+export async function createEmailVerification(data: { userId: string; userType: string; email: string; codeHash: string; codeExpiresAt: Date }): Promise<EmailVerification> {
+  const [record] = await db.insert(emailVerifications).values(data).returning();
+  return record;
+}
+
+export async function getLatestVerification(email: string): Promise<EmailVerification | undefined> {
+  const [record] = await db.select().from(emailVerifications).where(
+    and(
+      eq(emailVerifications.email, email.toLowerCase()),
+      sql`${emailVerifications.verifiedAt} IS NULL`,
+      sql`${emailVerifications.codeExpiresAt} > NOW()`,
+      sql`${emailVerifications.attempts} < ${emailVerifications.maxAttempts}`
+    )
+  ).orderBy(desc(emailVerifications.createdAt)).limit(1);
+  return record;
+}
+
+export async function incrementVerificationAttempts(id: string): Promise<void> {
+  await db.update(emailVerifications).set({ attempts: sql`${emailVerifications.attempts} + 1` }).where(eq(emailVerifications.id, id));
+}
+
+export async function markEmailVerified(id: string): Promise<void> {
+  await db.update(emailVerifications).set({ verifiedAt: new Date() }).where(eq(emailVerifications.id, id));
+}
+
+export async function deleteUnverifiedCodes(email: string): Promise<void> {
+  await db.delete(emailVerifications).where(
+    and(eq(emailVerifications.email, email.toLowerCase()), sql`${emailVerifications.verifiedAt} IS NULL`)
+  );
+}
+
+export async function updatePatientEmailVerified(id: string): Promise<void> {
+  await db.update(patients).set({ emailVerified: true, emailVerifiedAt: new Date(), updatedAt: new Date() }).where(eq(patients.id, id));
+}
+
+export async function updateDoctorEmailVerified(id: string): Promise<void> {
+  await db.update(doctors).set({ emailVerified: true, emailVerifiedAt: new Date(), updatedAt: new Date() }).where(eq(doctors.id, id));
+}
+
+export async function createUserAgreement(data: { userId: string; userType: string }): Promise<UserAgreement> {
+  const now = new Date();
+  const [agreement] = await db.insert(userAgreements).values({
+    userId: data.userId,
+    userType: data.userType,
+    agreedToTerms: true,
+    termsAgreedAt: now,
+    agreedToPrivacy: true,
+    privacyAgreedAt: now,
+  }).returning();
+  return agreement;
+}
+
+export async function getUserAgreement(userId: string): Promise<UserAgreement | undefined> {
+  const [agreement] = await db.select().from(userAgreements).where(eq(userAgreements.userId, userId));
+  return agreement;
 }

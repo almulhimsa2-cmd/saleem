@@ -31,6 +31,8 @@ export default function DoctorRegisterScreen({ navigation }: any) {
   const [error, setError] = useState("");
   const [pwErrors, setPwErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [termsConsent, setTermsConsent] = useState(false);
+  const [privacyConsent, setPrivacyConsent] = useState(false);
 
   const validatePw = (pw: string) => {
     const errs: string[] = [];
@@ -53,6 +55,14 @@ export default function DoctorRegisterScreen({ navigation }: any) {
       setError(language === "ar" ? "كلمات المرور غير متطابقة" : "Passwords do not match");
       return;
     }
+    if (!termsConsent) {
+      setError(language === "ar" ? "يجب الموافقة على الشروط والأحكام" : "You must agree to Terms & Conditions");
+      return;
+    }
+    if (!privacyConsent) {
+      setError(language === "ar" ? "يجب الموافقة على سياسة الخصوصية" : "You must agree to Privacy Policy");
+      return;
+    }
     setLoading(true);
     const result = await registerDoctor({
       nameEn: nameEn.trim(),
@@ -69,6 +79,7 @@ export default function DoctorRegisterScreen({ navigation }: any) {
       setError(result.error || "Registration failed");
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      navigation.navigate("EmailVerification", { email: result.email || email.trim(), userType: "doctor" });
     }
   };
 
@@ -228,6 +239,24 @@ export default function DoctorRegisterScreen({ navigation }: any) {
             />
           </View>
 
+          <Pressable onPress={() => setTermsConsent(!termsConsent)} style={styles.consentRow}>
+            <View style={[styles.checkbox, termsConsent && { backgroundColor: SaleemColors.accent, borderColor: SaleemColors.accent }]}>
+              {termsConsent ? <Feather name="check" size={14} color="#FFF" /> : null}
+            </View>
+            <ThemedText type="small" style={{ flex: 1, color: theme.textSecondary }}>
+              {language === "ar" ? "أوافق على الشروط والأحكام" : "I agree to Terms & Conditions"}
+            </ThemedText>
+          </Pressable>
+
+          <Pressable onPress={() => setPrivacyConsent(!privacyConsent)} style={styles.consentRow}>
+            <View style={[styles.checkbox, privacyConsent && { backgroundColor: SaleemColors.accent, borderColor: SaleemColors.accent }]}>
+              {privacyConsent ? <Feather name="check" size={14} color="#FFF" /> : null}
+            </View>
+            <ThemedText type="small" style={{ flex: 1, color: theme.textSecondary }}>
+              {language === "ar" ? "أوافق على سياسة الخصوصية" : "I agree to Privacy Policy"}
+            </ThemedText>
+          </Pressable>
+
           <Button onPress={handleRegister} variant="primary" size="large" loading={loading} testID="button-register" style={{ marginTop: Spacing.sm }}>
             {language === "ar" ? "تسجيل" : "Register"}
           </Button>
@@ -259,5 +288,7 @@ const styles = StyleSheet.create({
   passwordInput: { paddingRight: 50 },
   eyeBtn: { position: "absolute", right: Spacing.md, top: Spacing.sm, height: 52, justifyContent: "center" },
   pwReqs: { marginTop: Spacing.xs, gap: 2 },
+  consentRow: { flexDirection: "row", gap: Spacing.md, alignItems: "flex-start", marginTop: Spacing.sm },
+  checkbox: { width: 22, height: 22, borderRadius: 4, borderWidth: 2, borderColor: "#CCC", alignItems: "center", justifyContent: "center", marginTop: 2 },
   linkRow: { flexDirection: "row", justifyContent: "center", marginTop: Spacing.xl },
 });

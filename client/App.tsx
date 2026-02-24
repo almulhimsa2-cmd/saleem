@@ -14,7 +14,7 @@ import { queryClient } from "@/lib/query-client";
 import RootStackNavigator from "@/navigation/RootStackNavigator";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { LanguageProvider } from "@/contexts/LanguageContext";
-import { UserProvider } from "@/contexts/UserContext";
+
 import { AuthProvider } from "@/contexts/AuthContext";
 import { SaleemColors } from "@/constants/theme";
 
@@ -48,14 +48,12 @@ export default function App() {
           <KeyboardProvider>
             <LanguageProvider>
               <AuthProvider>
-                <UserProvider>
-                  <ErrorBoundary>
-                    <NavigationContainer>
-                      <RootStackNavigator />
-                    </NavigationContainer>
-                  </ErrorBoundary>
-                  <StatusBar style="auto" />
-                </UserProvider>
+                <ErrorBoundary>
+                  <NavigationContainer>
+                    <RootStackNavigator />
+                  </NavigationContainer>
+                </ErrorBoundary>
+                <StatusBar style="auto" />
               </AuthProvider>
             </LanguageProvider>
           </KeyboardProvider>

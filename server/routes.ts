@@ -14,7 +14,7 @@ const upload = multer({
   dest: "uploads/",
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    const allowed = ["image/jpeg", "image/png", "application/pdf"];
+    const allowed = ["image/jpeg", "image/png"];
     cb(null, allowed.includes(file.mimetype));
   },
 });
@@ -22,6 +22,10 @@ const upload = multer({
 const uploadsDir = path.resolve(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+function generateVerificationCode(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -61,9 +65,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         licenseType: licenseType || null,
       } as any);
       await storage.updateDoctor(doctor.id, { clinicCode } as any);
-      const token = generateToken({ id: doctor.id, type: "doctor" });
-      const { password: _, ...doctorData } = doctor;
-      res.status(201).json({ token, doctor: { ...doctorData, clinicCode } });
+
+      const code = generateVerificationCode();
+      const codeHash = await hashPassword(code);
+      const codeExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+      await storage.createEmailVerification({
+        userId: doctor.id,
+        userType: "doctor",
+        email: email.toLowerCase(),
+        codeHash,
+        codeExpiresAt,
+      });
+
+      await storage.createUserAgreement({ userId: doctor.id, userType: "doctor" });
+
+      console.log(`[DEV] Verification code for ${email}: ${code}`);
+
+      res.status(201).json({
+        success: true,
+        email: email.toLowerCase(),
+        message: "Registration successful, verify your email",
+        verification_required: true,
+      });
     } catch (error: any) {
       console.error("Doctor register error:", error);
       res.status(500).json({ message: "Registration failed" });
@@ -83,6 +106,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const valid = await comparePasswords(password, doctor.password);
       if (!valid) {
         return res.status(401).json({ message: "Invalid email or password" });
+      }
+      if (!doctor.emailVerified) {
+        const code = generateVerificationCode();
+        const codeHash = await hashPassword(code);
+        const codeExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+        await storage.deleteUnverifiedCodes(email.toLowerCase());
+        await storage.createEmailVerification({
+          userId: doctor.id,
+          userType: "doctor",
+          email: email.toLowerCase(),
+          codeHash,
+          codeExpiresAt,
+        });
+        console.log(`[DEV] Verification code for ${email}: ${code}`);
+        return res.status(403).json({
+          message: "Email not verified",
+          verification_required: true,
+          email: email.toLowerCase(),
+        });
       }
       const token = generateToken({ id: doctor.id, type: "doctor" });
       const { password: _, ...doctorData } = doctor;
@@ -158,9 +200,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fullName,
         phone: phone || null,
       } as any);
-      const token = generateToken({ id: patient.id, type: "patient" });
-      const { password: _, ...patientData } = patient;
-      res.status(201).json({ token, patient: patientData });
+
+      const code = generateVerificationCode();
+      const codeHash = await hashPassword(code);
+      const codeExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+      await storage.createEmailVerification({
+        userId: patient.id,
+        userType: "patient",
+        email: email.toLowerCase(),
+        codeHash,
+        codeExpiresAt,
+      });
+
+      await storage.createUserAgreement({ userId: patient.id, userType: "patient" });
+
+      console.log(`[DEV] Verification code for ${email}: ${code}`);
+
+      res.status(201).json({
+        success: true,
+        email: email.toLowerCase(),
+        message: "Registration successful, verify your email",
+        verification_required: true,
+      });
     } catch (error: any) {
       console.error("Patient register error:", error);
       res.status(500).json({ message: "Registration failed" });
@@ -180,6 +241,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const valid = await comparePasswords(password, patient.password);
       if (!valid) {
         return res.status(401).json({ message: "Invalid email or password" });
+      }
+      if (!patient.emailVerified) {
+        const code = generateVerificationCode();
+        const codeHash = await hashPassword(code);
+        const codeExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+        await storage.deleteUnverifiedCodes(email.toLowerCase());
+        await storage.createEmailVerification({
+          userId: patient.id,
+          userType: "patient",
+          email: email.toLowerCase(),
+          codeHash,
+          codeExpiresAt,
+        });
+        console.log(`[DEV] Verification code for ${email}: ${code}`);
+        return res.status(403).json({
+          message: "Email not verified",
+          verification_required: true,
+          email: email.toLowerCase(),
+        });
       }
       const token = generateToken({ id: patient.id, type: "patient" });
       const { password: _, ...patientData } = patient;
@@ -213,6 +293,116 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(patientData);
     } catch (error) {
       res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
+  // === EMAIL VERIFICATION ===
+  app.post("/api/auth/verify-email", async (req: Request, res: Response) => {
+    try {
+      const { email, code } = req.body;
+      if (!email || !code) {
+        return res.status(400).json({ message: "Email and code are required" });
+      }
+      const normalizedEmail = email.toLowerCase().trim();
+
+      if (!/^\d{6}$/.test(code)) {
+        return res.status(400).json({ message: "Invalid code format" });
+      }
+
+      const verification = await storage.getLatestVerification(normalizedEmail);
+      if (!verification) {
+        return res.status(400).json({ message: "Code expired or not found" });
+      }
+
+      const codeValid = await comparePasswords(code, verification.codeHash);
+      if (!codeValid) {
+        await storage.incrementVerificationAttempts(verification.id);
+        const remaining = (verification.maxAttempts || 5) - (verification.attempts || 0) - 1;
+        return res.status(400).json({
+          message: "Invalid verification code",
+          attempts_remaining: Math.max(0, remaining),
+        });
+      }
+
+      await storage.markEmailVerified(verification.id);
+
+      if (verification.userType === "doctor") {
+        await storage.updateDoctorEmailVerified(verification.userId);
+        const doctor = await storage.getDoctorById(verification.userId);
+        if (!doctor) return res.status(404).json({ message: "User not found" });
+        const token = generateToken({ id: doctor.id, type: "doctor" });
+        const { password: _, ...doctorData } = doctor;
+        return res.json({
+          success: true,
+          message: "Email verified successfully",
+          token,
+          user: doctorData,
+          userType: "doctor",
+        });
+      } else {
+        await storage.updatePatientEmailVerified(verification.userId);
+        const patient = await storage.getPatientById(verification.userId);
+        if (!patient) return res.status(404).json({ message: "User not found" });
+        const token = generateToken({ id: patient.id, type: "patient" });
+        const { password: _, ...patientData } = patient;
+        return res.json({
+          success: true,
+          message: "Email verified successfully",
+          token,
+          user: patientData,
+          userType: "patient",
+        });
+      }
+    } catch (error) {
+      console.error("Verification error:", error);
+      res.status(500).json({ message: "Verification failed" });
+    }
+  });
+
+  app.post("/api/auth/resend-code", async (req: Request, res: Response) => {
+    try {
+      const { email, userType } = req.body;
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+      const normalizedEmail = email.toLowerCase().trim();
+
+      let user: any;
+      let resolvedType = userType;
+      if (userType === "doctor") {
+        user = await storage.getDoctorByEmail(normalizedEmail);
+      } else {
+        user = await storage.getPatientByEmail(normalizedEmail);
+        resolvedType = "patient";
+      }
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (user.emailVerified) {
+        return res.status(400).json({ message: "Email already verified" });
+      }
+
+      await storage.deleteUnverifiedCodes(normalizedEmail);
+
+      const code = generateVerificationCode();
+      const codeHash = await hashPassword(code);
+      const codeExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+      await storage.createEmailVerification({
+        userId: user.id,
+        userType: resolvedType,
+        email: normalizedEmail,
+        codeHash,
+        codeExpiresAt,
+      });
+
+      console.log(`[DEV] Resent verification code for ${email}: ${code}`);
+
+      res.json({ success: true, message: "Verification code resent" });
+    } catch (error) {
+      console.error("Resend code error:", error);
+      res.status(500).json({ message: "Failed to resend code" });
     }
   });
 
@@ -381,49 +571,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // === VAULT ===
-  app.post("/api/vault/upload", authMiddleware, upload.single("file"), async (req: Request, res: Response) => {
-    try {
-      const file = req.file;
-      if (!file) return res.status(400).json({ message: "No file provided" });
-      const { type } = req.body;
-      if (!type || !["lab", "radiology"].includes(type)) {
-        return res.status(400).json({ message: "Type must be 'lab' or 'radiology'" });
-      }
-      const fileUrl = `/uploads/${file.filename}`;
-      const vaultFile = await storage.createVaultFile({
-        patientId: (req as any).userId,
-        type,
-        fileName: file.originalname,
-        fileUrl,
-        mimeType: file.mimetype,
-        fileSize: file.size,
-      });
-      res.status(201).json(vaultFile);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to upload file" });
-    }
-  });
-
-  app.get("/api/vault", authMiddleware, async (req: Request, res: Response) => {
-    try {
-      const { type } = req.query;
-      const files = await storage.getVaultFiles((req as any).userId, type as string);
-      res.json(files);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to get vault files" });
-    }
-  });
-
-  app.delete("/api/vault/:fileId", authMiddleware, async (req: Request, res: Response) => {
-    try {
-      await storage.deleteVaultFile(req.params.fileId, (req as any).userId);
-      res.json({ message: "File deleted" });
-    } catch (error) {
-      res.status(500).json({ message: "Failed to delete file" });
-    }
-  });
-
   // === DOCTOR PROFILE (PUBLIC) ===
   app.get("/api/doctors/profile/:doctorId", async (req: Request, res: Response) => {
     try {
@@ -489,7 +636,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     socket.on("join_chat", (chatId: string) => {
       socket.join(`chat:${chatId}`);
-      console.log(`${userType} ${userId} joined chat:${chatId}`);
     });
 
     socket.on("leave_chat", (chatId: string) => {

@@ -34,6 +34,10 @@ export default function PatientLoginScreen({ navigation }: any) {
     setLoading(true);
     const result = await login("patient", email.trim(), password);
     setLoading(false);
+    if (result.verification_required) {
+      navigation.navigate("EmailVerification", { email: result.email || email.trim(), userType: "patient" });
+      return;
+    }
     if (!result.success) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setError(result.error || "Login failed");

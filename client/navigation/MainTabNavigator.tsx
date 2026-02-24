@@ -5,7 +5,6 @@ import { BlurView } from "expo-blur";
 import { Platform, StyleSheet } from "react-native";
 
 import HomeScreen from "@/screens/HomeScreen";
-import VaultScreen from "@/screens/VaultScreen";
 import MessagesScreen from "@/screens/MessagesScreen";
 import SettingsScreen from "@/screens/SettingsScreen";
 import { HeaderTitle } from "@/components/HeaderTitle";
@@ -17,7 +16,6 @@ import { SaleemColors } from "@/constants/theme";
 export type MainTabParamList = {
   HomeTab: undefined;
   MessagesTab: undefined;
-  VaultTab: undefined;
   SettingsTab: undefined;
 };
 
@@ -58,7 +56,7 @@ export default function MainTabNavigator() {
         name="HomeTab"
         component={HomeScreen}
         options={{
-          title: t("home"),
+          title: language === "ar" ? "الملف" : "Profile",
           headerTitle: () => <HeaderTitle title={t("appName")} />,
           tabBarIcon: ({ color, size }) => (
             <Feather name="user" size={size} color={color} />
@@ -73,17 +71,6 @@ export default function MainTabNavigator() {
           headerTitle: language === "ar" ? "المحادثات" : "Chat",
           tabBarIcon: ({ color, size }) => (
             <Feather name="message-circle" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="VaultTab"
-        component={VaultScreen}
-        options={{
-          title: t("vault"),
-          headerTitle: t("medicalVault"),
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="folder" size={size} color={color} />
           ),
         }}
       />

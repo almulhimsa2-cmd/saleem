@@ -8,8 +8,8 @@ import PatientLoginScreen from "@/screens/PatientLoginScreen";
 import PatientRegisterScreen from "@/screens/PatientRegisterScreen";
 import DoctorLoginScreen from "@/screens/DoctorLoginScreen";
 import DoctorRegisterScreen from "@/screens/DoctorRegisterScreen";
+import EmailVerificationScreen from "@/screens/EmailVerificationScreen";
 import ChatScreen from "@/screens/ChatScreen";
-import PDPLConsentScreen from "@/screens/PDPLConsentScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -22,7 +22,7 @@ export type RootStackParamList = {
   PatientRegister: undefined;
   DoctorLogin: undefined;
   DoctorRegister: undefined;
-  PDPLConsent: { role: "patient" | "doctor" };
+  EmailVerification: { email: string; userType: "patient" | "doctor" };
   MainTabs: undefined;
   DoctorTabs: undefined;
   Chat: { chatId: string; chatName: string };
@@ -71,7 +71,7 @@ export default function RootStackNavigator() {
           <Stack.Screen name="PatientRegister" component={PatientRegisterScreen} options={{ headerShown: true, headerBackTitle: "", headerTitle: language === "ar" ? "تسجيل جديد" : "Register" }} />
           <Stack.Screen name="DoctorLogin" component={DoctorLoginScreen} options={{ headerShown: true, headerBackTitle: "", headerTitle: language === "ar" ? "دخول الطبيب" : "Doctor Login" }} />
           <Stack.Screen name="DoctorRegister" component={DoctorRegisterScreen} options={{ headerShown: true, headerBackTitle: "", headerTitle: language === "ar" ? "تسجيل طبيب" : "Doctor Register" }} />
-          <Stack.Screen name="PDPLConsent" component={PDPLConsentScreen} options={{ headerShown: true, headerBackTitle: "", headerTitle: language === "ar" ? "حماية البيانات" : "Data Protection" }} />
+          <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} options={{ headerShown: true, headerBackTitle: "", headerTitle: language === "ar" ? "تحقق من البريد" : "Verify Email" }} />
         </>
       )}
     </Stack.Navigator>
