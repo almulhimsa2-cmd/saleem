@@ -54,6 +54,13 @@
       "eas": {
         "projectId": "e7133b28-9d7b-4d47-ad56-41db2831ece1"
       }
+    },
+    "owner": "almulhimsa",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/e7133b28-9d7b-4d47-ad56-41db2831ece1"
     }
   }
 }
