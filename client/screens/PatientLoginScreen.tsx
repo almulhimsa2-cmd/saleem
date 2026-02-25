@@ -61,7 +61,7 @@ export default function PatientLoginScreen({ navigation }: any) {
             <Feather name="user" size={40} color={SaleemColors.accent} />
           </View>
           <ThemedText type="h2" style={{ textAlign: "center", marginTop: Spacing.lg }}>
-            {language === "ar" ? "تسجيل دخول المريض" : "Patient Login"}
+            {language === "ar" ? "تسجيل دخول العميل" : "Client Login"}
           </ThemedText>
         </Animated.View>
 
@@ -79,7 +79,7 @@ export default function PatientLoginScreen({ navigation }: any) {
             </ThemedText>
             <TextInput
               style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text, textAlign: isRTL ? "right" : "left" }]}
-              placeholder={language === "ar" ? "patient@email.com" : "patient@email.com"}
+              placeholder="client@email.com"
               placeholderTextColor={theme.textSecondary}
               value={email}
               onChangeText={setEmail}

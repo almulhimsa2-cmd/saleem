@@ -95,10 +95,10 @@ export default function DoctorRegisterScreen({ navigation }: any) {
 
         <Animated.View entering={FadeInDown.delay(100).duration(600)} style={styles.header}>
           <ThemedText type="h2" style={{ color: "#FFF", textAlign: "center" }}>
-            {language === "ar" ? "تسجيل حساب طبيب" : "Doctor Registration"}
+            {language === "ar" ? "تسجيل حساب مختص" : "Professional Registration"}
           </ThemedText>
           <ThemedText type="small" style={{ color: "rgba(255,255,255,0.7)", textAlign: "center", marginTop: Spacing.sm }}>
-            {language === "ar" ? "يتطلب التحقق من الرخصة الطبية" : "Medical license verification required"}
+            {language === "ar" ? "يتطلب التحقق من بيانات الاعتماد المهنية" : "Professional credentials verification required"}
           </ThemedText>
         </Animated.View>
 
@@ -116,7 +116,7 @@ export default function DoctorRegisterScreen({ navigation }: any) {
             </ThemedText>
             <TextInput
               style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
-              placeholder="Dr. Smith"
+              placeholder="John Smith"
               placeholderTextColor={theme.textSecondary}
               value={nameEn}
               onChangeText={setNameEn}
@@ -130,7 +130,7 @@ export default function DoctorRegisterScreen({ navigation }: any) {
             </ThemedText>
             <TextInput
               style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text, textAlign: "right" }]}
-              placeholder="د. أحمد"
+              placeholder="أحمد محمد"
               placeholderTextColor={theme.textSecondary}
               value={nameAr}
               onChangeText={setNameAr}
@@ -144,7 +144,7 @@ export default function DoctorRegisterScreen({ navigation }: any) {
             </ThemedText>
             <TextInput
               style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text, textAlign: isRTL ? "right" : "left" }]}
-              placeholder="doctor@email.com"
+              placeholder="professional@email.com"
               placeholderTextColor={theme.textSecondary}
               value={email}
               onChangeText={setEmail}
@@ -160,7 +160,7 @@ export default function DoctorRegisterScreen({ navigation }: any) {
             </ThemedText>
             <TextInput
               style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text, textAlign: isRTL ? "right" : "left" }]}
-              placeholder={language === "ar" ? "طب عام" : "General Medicine"}
+              placeholder={language === "ar" ? "استشارات عامة" : "General Consulting"}
               placeholderTextColor={theme.textSecondary}
               value={specialization}
               onChangeText={setSpecialization}
@@ -170,11 +170,11 @@ export default function DoctorRegisterScreen({ navigation }: any) {
 
           <View style={styles.inputGroup}>
             <ThemedText type="small" style={{ color: theme.textSecondary }}>
-              {language === "ar" ? "رقم الرخصة الطبية" : "Medical License Number"}
+              {language === "ar" ? "رقم الرخصة المهنية" : "Professional License Number"}
             </ThemedText>
             <TextInput
               style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text, textAlign: isRTL ? "right" : "left" }]}
-              placeholder="SCFHS-XXXXX"
+              placeholder="LIC-XXXXX"
               placeholderTextColor={theme.textSecondary}
               value={licenseNumber}
               onChangeText={setLicenseNumber}

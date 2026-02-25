@@ -83,7 +83,7 @@ export default function DoctorProfileScreen({ navigation }: any) {
             style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text, textAlign: isRTL ? "right" : "left" }]}
             value={specialization}
             onChangeText={setSpecialization}
-            placeholder={language === "ar" ? "طب عام" : "General Medicine"}
+            placeholder={language === "ar" ? "استشارات عامة" : "General Consulting"}
             placeholderTextColor={theme.textSecondary}
           />
         </View>
@@ -96,7 +96,7 @@ export default function DoctorProfileScreen({ navigation }: any) {
             style={[styles.textArea, { backgroundColor: theme.backgroundSecondary, color: theme.text, textAlign: isRTL ? "right" : "left" }]}
             value={bio}
             onChangeText={setBio}
-            placeholder={language === "ar" ? "أخبر مرضاك عن نفسك..." : "Tell your patients about yourself..."}
+            placeholder={language === "ar" ? "أخبر عملاءك عن نفسك..." : "Tell your clients about yourself..."}
             placeholderTextColor={theme.textSecondary}
             multiline
             numberOfLines={4}
@@ -112,7 +112,7 @@ export default function DoctorProfileScreen({ navigation }: any) {
             style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
             value={youtubeLink}
             onChangeText={setYoutubeLink}
-            placeholder="https://youtube.com/@drchannel"
+            placeholder="https://youtube.com/@channel"
             placeholderTextColor={theme.textSecondary}
             keyboardType="url"
             autoCapitalize="none"
@@ -146,7 +146,7 @@ export default function DoctorProfileScreen({ navigation }: any) {
           <Feather name="file-text" size={20} color={SaleemColors.primary} />
           <View style={{ flex: 1 }}>
             <ThemedText type="small" style={{ color: theme.textSecondary }}>
-              {language === "ar" ? "رقم الرخصة" : "License Number"}
+              {language === "ar" ? "رقم الرخصة المهنية" : "Professional License Number"}
             </ThemedText>
             <ThemedText type="body">{user.licenseNumber}</ThemedText>
           </View>

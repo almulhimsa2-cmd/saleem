@@ -89,7 +89,7 @@ export default function PatientRegisterScreen({ navigation }: any) {
 
         <Animated.View entering={FadeInDown.delay(100).duration(600)} style={styles.header}>
           <ThemedText type="h2" style={{ textAlign: "center" }}>
-            {language === "ar" ? "إنشاء حساب مريض" : "Create Patient Account"}
+            {language === "ar" ? "إنشاء حساب عميل" : "Create Client Account"}
           </ThemedText>
         </Animated.View>
 
@@ -121,7 +121,7 @@ export default function PatientRegisterScreen({ navigation }: any) {
             </ThemedText>
             <TextInput
               style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text, textAlign: isRTL ? "right" : "left" }]}
-              placeholder="patient@email.com"
+              placeholder="client@email.com"
               placeholderTextColor={theme.textSecondary}
               value={email}
               onChangeText={setEmail}

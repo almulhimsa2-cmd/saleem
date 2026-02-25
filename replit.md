@@ -1,32 +1,33 @@
 # Saleem (سليم) - Professional Messaging Platform
 
 ## Overview
-Saleem is a bilingual (Arabic/English) professional messaging platform for Saudi Arabia. Built with Expo React Native frontend and Express.js backend with PostgreSQL database. Features email+password authentication with 6-digit email verification, real-time chat via clinic codes, doctor notes, patient blocking, and PDPL compliance.
+Saleem is a bilingual (Arabic/English) professional messaging platform for Saudi Arabia targeting ALL professions. Built with Expo React Native frontend and Express.js backend with PostgreSQL database. Features email+password authentication with 6-digit email verification, real-time chat via access codes, private notes, client blocking, and PDPL compliance.
 
 ## Project State
-- **Current Phase**: Pivot from medical app to general professional messaging
+- **Current Phase**: General professional messaging platform (pivot from medical app complete)
 - **Last Updated**: February 2026
+- **Terminology**: "Professional/Specialist" (مختص) and "Client" (عميل) — internal code still uses "doctor"/"patient" for API routes and database tables
 
 ## Key Features
 
 ### Authentication
-- Full email+password auth for both patients and doctors
+- Full email+password auth for both clients and professionals
 - 6-digit email verification codes (dev mode: logged to console, prod: SMTP)
 - JWT-based token authentication
 - Password validation: 8+ chars, 1 uppercase, 1 number, 1 special char
-- Doctor license verification system
+- Professional license verification system
 - PDPL consent, Terms & Conditions, Privacy Policy checkboxes required at registration
 - Auth state persisted via AsyncStorage
 
-### Patient App
+### Client App
 1. **Profile** - Simple profile display (name, email, phone)
-2. **Messaging (Primary Feature)** - Default tab, clinic code entry to join doctor
+2. **Messaging (Primary Feature)** - Default tab, access code entry to connect with professional
 3. **Settings** - Language toggle, Terms & Conditions, Privacy Policy, Emergency Safety Notice, logout
 
-### Doctor Portal
-1. **Dashboard** - Auto-generated clinic code (6 chars), patient list, unread counts
-2. **Chat** - Real-time messaging with patients, private notes, patient blocking
-3. **Profile** - Bio, specialization, social links, license display
+### Professional Portal
+1. **Dashboard** - Auto-generated access code (6 chars), client list, unread counts
+2. **Chat** - Real-time messaging with clients, private notes, client blocking
+3. **Profile** - Bio, specialization, social links, professional license display
 
 ### Legal & Compliance
 - Terms & Conditions (bilingual modal)
@@ -44,8 +45,8 @@ Saleem is a bilingual (Arabic/English) professional messaging platform for Saudi
 - **Navigation**: React Navigation 7+
 
 ## Color Scheme
-- Primary: Medical Navy #003366
-- Accent: Healing Emerald #50C878
+- Primary: Navy #003366
+- Accent: Emerald #50C878
 - Background: #F8F9FA
 - Error: #DC3545
 
@@ -68,20 +69,20 @@ client/
 │   └── LanguageContext.tsx        # Bilingual support
 ├── navigation/
 │   ├── RootStackNavigator.tsx     # Auth-based routing (auth screens vs main app)
-│   ├── MainTabNavigator.tsx       # Patient tabs (Profile, Messages, Settings)
-│   └── DoctorNavigator.tsx        # Doctor stack (Dashboard, Chat, Profile)
+│   ├── MainTabNavigator.tsx       # Client tabs (Profile, Messages, Settings)
+│   └── DoctorNavigator.tsx        # Professional stack (Dashboard, Chat, Profile)
 └── screens/
-    ├── RoleSelectScreen.tsx       # Patient/Doctor role selection
-    ├── PatientLoginScreen.tsx     # Patient email+password login
-    ├── PatientRegisterScreen.tsx  # Patient registration with agreements
-    ├── DoctorLoginScreen.tsx      # Doctor login
-    ├── DoctorRegisterScreen.tsx   # Doctor registration with license + agreements
+    ├── RoleSelectScreen.tsx       # Client/Professional role selection
+    ├── PatientLoginScreen.tsx     # Client email+password login
+    ├── PatientRegisterScreen.tsx  # Client registration with agreements
+    ├── DoctorLoginScreen.tsx      # Professional login
+    ├── DoctorRegisterScreen.tsx   # Professional registration with license + agreements
     ├── EmailVerificationScreen.tsx # 6-digit email verification code entry
-    ├── MessagesScreen.tsx         # Patient chat list + clinic code entry
-    ├── ChatScreen.tsx             # Patient chat (pushed to stack)
-    ├── DoctorDashboardScreen.tsx  # Doctor dashboard with clinic code
-    ├── DoctorChatScreen.tsx       # Doctor chat + notes + blocking
-    ├── DoctorProfileScreen.tsx    # Doctor profile editing
+    ├── MessagesScreen.tsx         # Client chat list + access code entry
+    ├── ChatScreen.tsx             # Client chat (pushed to stack)
+    ├── DoctorDashboardScreen.tsx  # Professional dashboard with access code
+    ├── DoctorChatScreen.tsx       # Professional chat + notes + blocking
+    ├── DoctorProfileScreen.tsx    # Professional profile editing
     ├── SettingsScreen.tsx         # Settings with legal docs + emergency notice
     └── HomeScreen.tsx             # Simple profile display + emergency alert
 server/
@@ -102,7 +103,8 @@ shared/
 - Chat is the PRIMARY feature - Messages tab is default
 - Professional aesthetic
 - PDPL compliance required
-- Doctors get auto-generated clinic codes (6 chars), can customize
+- Professionals get auto-generated access codes (6 chars), can customize
+- All professions supported (lawyers, consultants, teachers, etc.)
 
 ## Design Guidelines
 See `design_guidelines.md` for complete design specifications.

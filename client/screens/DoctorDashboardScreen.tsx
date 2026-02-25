@@ -102,7 +102,7 @@ export default function DoctorDashboardScreen({ navigation }: any) {
         <Pressable onPress={copyCode} style={[styles.codeCard, { backgroundColor: SaleemColors.primary }]}>
           <View>
             <ThemedText type="small" style={{ color: "rgba(255,255,255,0.7)" }}>
-              {language === "ar" ? "رمز العيادة" : "Clinic Code"}
+              {language === "ar" ? "رمز الدخول" : "Access Code"}
             </ThemedText>
             <ThemedText type="h2" style={{ color: "#FFF", letterSpacing: 4 }}>
               {user?.clinicCode || "------"}
@@ -123,7 +123,7 @@ export default function DoctorDashboardScreen({ navigation }: any) {
         <View style={[styles.statCard, { backgroundColor: theme.cardBackground }]}>
           <ThemedText type="h2" style={{ color: SaleemColors.accent }}>{chats.length}</ThemedText>
           <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-            {language === "ar" ? "مرضى" : "Patients"}
+            {language === "ar" ? "عملاء" : "Clients"}
           </ThemedText>
         </View>
         <View style={[styles.statCard, { backgroundColor: theme.cardBackground }]}>
@@ -178,7 +178,7 @@ export default function DoctorDashboardScreen({ navigation }: any) {
             <View style={styles.emptyState}>
               <Feather name="inbox" size={48} color={theme.textSecondary} />
               <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.md, textAlign: "center" }}>
-                {language === "ar" ? "لا توجد محادثات بعد. شارك رمز العيادة مع مرضاك" : "No conversations yet. Share your clinic code with patients"}
+                {language === "ar" ? "لا توجد محادثات بعد. شارك رمز الدخول مع عملائك" : "No conversations yet. Share your access code with clients"}
               </ThemedText>
             </View>
           }

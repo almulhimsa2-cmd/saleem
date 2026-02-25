@@ -183,8 +183,8 @@ export default function MessagesScreen({ navigation }: any) {
             </ThemedText>
             <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.sm }}>
               {user?.type === "patient"
-                ? (language === "ar" ? "أدخل رمز الطبيب لبدء المحادثة" : "Enter a doctor's code to start chatting")
-                : (language === "ar" ? "شارك رمز العيادة مع مرضاك" : "Share your clinic code with patients")}
+                ? (language === "ar" ? "أدخل رمز المختص لبدء المحادثة" : "Enter a professional's access code to start chatting")
+                : (language === "ar" ? "شارك رمز الدخول مع عملائك" : "Share your access code with clients")}
             </ThemedText>
             {user?.type === "patient" ? (
               <Button
@@ -193,7 +193,7 @@ export default function MessagesScreen({ navigation }: any) {
                 style={{ marginTop: Spacing.xl }}
                 testID="button-enter-code"
               >
-                {language === "ar" ? "إدخال رمز الطبيب" : "Enter Doctor Code"}
+                {language === "ar" ? "إدخال رمز المختص" : "Enter Access Code"}
               </Button>
             ) : null}
           </View>
@@ -224,7 +224,7 @@ export default function MessagesScreen({ navigation }: any) {
               </ThemedText>
             </Pressable>
             <ThemedText type="h4">
-              {language === "ar" ? "رمز العيادة" : "Clinic Code"}
+              {language === "ar" ? "رمز الدخول" : "Access Code"}
             </ThemedText>
             <View style={{ width: 60 }} />
           </View>
@@ -235,13 +235,13 @@ export default function MessagesScreen({ navigation }: any) {
             </View>
 
             <ThemedText type="h3" style={{ textAlign: "center", marginTop: Spacing.xl }}>
-              {language === "ar" ? "أدخل رمز العيادة" : "Enter Clinic Code"}
+              {language === "ar" ? "أدخل رمز الدخول" : "Enter Access Code"}
             </ThemedText>
 
             <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.sm }}>
               {language === "ar"
-                ? "احصل على هذا الرمز من طبيبك أو العيادة"
-                : "Get this code from your doctor or clinic"}
+                ? "احصل على هذا الرمز من المختص"
+                : "Get this code from your professional"}
             </ThemedText>
 
             {codeError ? (

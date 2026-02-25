@@ -98,11 +98,11 @@ const enTranslations: Translations = {
   reviewInstructions: "Review today's instructions to unlock chat",
   typeMessage: "Type a message...",
   
-  clinicCode: "Clinic Code",
-  enterClinicCode: "Enter your clinic code",
-  joinClinic: "Join Clinic",
+  clinicCode: "Access Code",
+  enterClinicCode: "Enter your access code",
+  joinClinic: "Join",
   
-  disclaimer: "For education only, not emergency care",
+  disclaimer: "For follow-up communication only, not emergencies",
   deleteMyData: "Delete My Data",
   deleteConfirmation: "Type DELETE to confirm",
   logout: "Log Out",
@@ -201,11 +201,11 @@ const arTranslations: Translations = {
   reviewInstructions: "راجع تعليمات اليوم لفتح المحادثة",
   typeMessage: "اكتب رسالة...",
   
-  clinicCode: "رمز العيادة",
-  enterClinicCode: "أدخل رمز العيادة",
-  joinClinic: "انضم للعيادة",
+  clinicCode: "رمز الدخول",
+  enterClinicCode: "أدخل رمز الدخول",
+  joinClinic: "انضمام",
   
-  disclaimer: "للتثقيف فقط، ليس للطوارئ",
+  disclaimer: "للمتابعة فقط، ليس للطوارئ",
   deleteMyData: "حذف بياناتي",
   deleteConfirmation: "اكتب DELETE للتأكيد",
   logout: "تسجيل الخروج",

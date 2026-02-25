@@ -124,8 +124,8 @@ export default function ChatScreen({ route, navigation }: any) {
               <Feather name={item.senderType === "doctor" ? "briefcase" : "user"} size={12} color={SaleemColors.accent} />
               <ThemedText type="caption" style={{ color: SaleemColors.accent }}>
                 {item.senderType === "doctor"
-                  ? (language === "ar" ? "الطبيب" : "Doctor")
-                  : (language === "ar" ? "المريض" : "Patient")}
+                  ? (language === "ar" ? "المختص" : "Professional")
+                  : (language === "ar" ? "العميل" : "Client")}
               </ThemedText>
             </View>
           ) : null}

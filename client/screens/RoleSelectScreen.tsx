@@ -52,7 +52,7 @@ export default function RoleSelectScreen({ navigation }: any) {
           سليم
         </ThemedText>
         <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.sm }}>
-          {language === "ar" ? "بوابة المريض والطبيب الآمنة" : "Secure Patient-Doctor Portal"}
+          {language === "ar" ? "بوابة التواصل المهني الآمنة" : "Secure Professional Communication Portal"}
         </ThemedText>
       </Animated.View>
 
@@ -66,10 +66,10 @@ export default function RoleSelectScreen({ navigation }: any) {
             <Feather name="user" size={32} color={SaleemColors.accent} />
           </View>
           <ThemedText type="h3" style={{ marginTop: Spacing.md }}>
-            {language === "ar" ? "أنا مريض" : "I'm a Patient"}
+            {language === "ar" ? "أنا عميل" : "I'm a Client"}
           </ThemedText>
           <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.xs }}>
-            {language === "ar" ? "تواصل مع طبيبك" : "Connect with your doctor"}
+            {language === "ar" ? "تواصل مع المختص" : "Connect with your professional"}
           </ThemedText>
         </Pressable>
 
@@ -82,10 +82,10 @@ export default function RoleSelectScreen({ navigation }: any) {
             <Feather name="briefcase" size={32} color={SaleemColors.primary} />
           </View>
           <ThemedText type="h3" style={{ marginTop: Spacing.md }}>
-            {language === "ar" ? "أنا طبيب" : "I'm a Doctor"}
+            {language === "ar" ? "أنا مختص" : "I'm a Professional"}
           </ThemedText>
           <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.xs }}>
-            {language === "ar" ? "إدارة مرضاك" : "Manage your patients"}
+            {language === "ar" ? "إدارة عملائك" : "Manage your clients"}
           </ThemedText>
         </Pressable>
       </Animated.View>

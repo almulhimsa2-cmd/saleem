@@ -75,7 +75,7 @@ export default function HomeScreen() {
               <View style={styles.infoRow}>
                 <Feather name="hash" size={18} color={SaleemColors.accent} />
                 <ThemedText type="body" style={{ color: theme.textSecondary, flex: 1 }}>
-                  {language === "ar" ? "كود العيادة: " : "Clinic Code: "}{user.clinicCode}
+                  {language === "ar" ? "رمز الدخول: " : "Access Code: "}{user.clinicCode}
                 </ThemedText>
               </View>
             ) : null}
@@ -93,8 +93,8 @@ export default function HomeScreen() {
           </View>
           <ThemedText type="body" style={{ color: theme.text, marginTop: Spacing.sm }}>
             {language === "ar"
-              ? "هذا التطبيق ليس لحالات الطوارئ الطبية.\nفي حالة الطوارئ، اتصل برقم 997 فوراً."
-              : "This app is NOT for medical emergencies.\nIn an emergency, call 997 immediately."}
+              ? "هذا التطبيق ليس لحالات الطوارئ.\nفي حالة الطوارئ، اتصل برقم 997 فوراً."
+              : "This app is NOT for emergencies.\nIn an emergency, call 997 immediately."}
           </ThemedText>
           <Pressable
             onPress={() => {

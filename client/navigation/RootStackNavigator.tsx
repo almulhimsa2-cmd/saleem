@@ -69,8 +69,8 @@ export default function RootStackNavigator() {
           <Stack.Screen name="RoleSelect" component={RoleSelectScreen} />
           <Stack.Screen name="PatientLogin" component={PatientLoginScreen} options={{ headerShown: true, headerBackTitle: "", headerTitle: language === "ar" ? "تسجيل الدخول" : "Login" }} />
           <Stack.Screen name="PatientRegister" component={PatientRegisterScreen} options={{ headerShown: true, headerBackTitle: "", headerTitle: language === "ar" ? "تسجيل جديد" : "Register" }} />
-          <Stack.Screen name="DoctorLogin" component={DoctorLoginScreen} options={{ headerShown: true, headerBackTitle: "", headerTitle: language === "ar" ? "دخول الطبيب" : "Doctor Login" }} />
-          <Stack.Screen name="DoctorRegister" component={DoctorRegisterScreen} options={{ headerShown: true, headerBackTitle: "", headerTitle: language === "ar" ? "تسجيل طبيب" : "Doctor Register" }} />
+          <Stack.Screen name="DoctorLogin" component={DoctorLoginScreen} options={{ headerShown: true, headerBackTitle: "", headerTitle: language === "ar" ? "دخول المختص" : "Professional Login" }} />
+          <Stack.Screen name="DoctorRegister" component={DoctorRegisterScreen} options={{ headerShown: true, headerBackTitle: "", headerTitle: language === "ar" ? "تسجيل مختص" : "Professional Register" }} />
           <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} options={{ headerShown: true, headerBackTitle: "", headerTitle: language === "ar" ? "تحقق من البريد" : "Verify Email" }} />
         </>
       )}

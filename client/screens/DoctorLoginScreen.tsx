@@ -63,7 +63,7 @@ export default function DoctorLoginScreen({ navigation }: any) {
             resizeMode="contain"
           />
           <ThemedText type="h1" style={styles.title}>
-            {language === "ar" ? "بوابة الطبيب" : "Doctor Portal"}
+            {language === "ar" ? "بوابة المختص" : "Professional Portal"}
           </ThemedText>
           <ThemedText type="body" style={styles.subtitle}>
             Saleem سليم
@@ -88,7 +88,7 @@ export default function DoctorLoginScreen({ navigation }: any) {
             </ThemedText>
             <TextInput
               style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text, textAlign: isRTL ? "right" : "left" }]}
-              placeholder="doctor@email.com"
+              placeholder="professional@email.com"
               placeholderTextColor={theme.textSecondary}
               value={email}
               onChangeText={setEmail}
@@ -124,7 +124,7 @@ export default function DoctorLoginScreen({ navigation }: any) {
 
           <Pressable onPress={() => navigation.navigate("DoctorRegister")} style={styles.linkRow}>
             <ThemedText type="small" style={{ color: theme.textSecondary }}>
-              {language === "ar" ? "ليس لديك حساب؟" : "New doctor?"}
+              {language === "ar" ? "ليس لديك حساب؟" : "New professional?"}
             </ThemedText>
             <ThemedText type="link" style={{ color: SaleemColors.accent }}>
               {language === "ar" ? " إنشاء حساب" : " Register"}

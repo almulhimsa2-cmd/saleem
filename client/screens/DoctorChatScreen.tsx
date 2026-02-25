@@ -183,7 +183,7 @@ export default function DoctorChatScreen({ route, navigation }: any) {
             <View style={styles.senderLabel}>
               <Feather name="user" size={12} color={SaleemColors.accent} />
               <ThemedText type="caption" style={{ color: SaleemColors.accent }}>
-                {language === "ar" ? "المريض" : "Patient"}
+                {language === "ar" ? "العميل" : "Client"}
               </ThemedText>
             </View>
           ) : null}
@@ -203,7 +203,7 @@ export default function DoctorChatScreen({ route, navigation }: any) {
     <View style={styles.emptyChat}>
       <Feather name="message-circle" size={48} color={theme.textSecondary} />
       <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.md, textAlign: "center" }}>
-        {language === "ar" ? "ابدأ المحادثة مع المريض" : "Start the conversation with patient"}
+        {language === "ar" ? "ابدأ المحادثة مع العميل" : "Start the conversation with client"}
       </ThemedText>
     </View>
   );
@@ -258,12 +258,12 @@ export default function DoctorChatScreen({ route, navigation }: any) {
             <Pressable onPress={() => setShowNotesModal(false)}>
               <ThemedText type="button" style={{ color: theme.textSecondary }}>{language === "ar" ? "إلغاء" : "Cancel"}</ThemedText>
             </Pressable>
-            <ThemedText type="h4">{language === "ar" ? "ملاحظات المريض" : "Patient Notes"}</ThemedText>
+            <ThemedText type="h4">{language === "ar" ? "ملاحظات العميل" : "Client Notes"}</ThemedText>
             <View style={{ width: 60 }} />
           </View>
           <View style={styles.modalContent}>
             <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: Spacing.sm }}>
-              {language === "ar" ? "ملاحظات خاصة (لا يراها المريض)" : "Private notes (patient cannot see these)"}
+              {language === "ar" ? "ملاحظات خاصة (لا يراها العميل)" : "Private notes (client cannot see these)"}
             </ThemedText>
             <TextInput
               style={[styles.notesInput, { backgroundColor: theme.cardBackground, color: theme.text, textAlign: isRTL ? "right" : "left" }]}
@@ -287,7 +287,7 @@ export default function DoctorChatScreen({ route, navigation }: any) {
             <Pressable onPress={handleBlock} style={styles.blockOption} testID="button-block">
               <Feather name="slash" size={20} color={SaleemColors.error} />
               <ThemedText type="body" style={{ color: SaleemColors.error }}>
-                {language === "ar" ? "حظر المريض" : "Block Patient"}
+                {language === "ar" ? "حظر العميل" : "Block Client"}
               </ThemedText>
             </Pressable>
           </View>

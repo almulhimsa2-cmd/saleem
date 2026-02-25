@@ -264,8 +264,8 @@ export default function SettingsScreen() {
           </View>
           <ThemedText type="body" style={{ color: theme.text, marginTop: Spacing.sm, lineHeight: 22 }}>
             {language === "ar"
-              ? "هذا التطبيق ليس لحالات الطوارئ الطبية.\n\nفي حالة الطوارئ الطبية:\n1. اتصل برقم 997 فوراً\n2. توجه للمستشفى الأقرب\n3. لا تعتمد على هذا التطبيق\n\nهذا تطبيق مراسلة احترافي للمتابعة فقط."
-              : "This app is NOT for medical emergencies.\n\nIn a medical emergency:\n1. Call 997 immediately\n2. Go to the nearest hospital\n3. Do NOT rely on this app\n\nThis is a professional messaging tool for follow-up communication only."}
+              ? "هذا التطبيق ليس لحالات الطوارئ.\n\nفي حالة الطوارئ:\n1. اتصل برقم 997 فوراً\n2. توجه لأقرب جهة مختصة\n3. لا تعتمد على هذا التطبيق\n\nهذا تطبيق مراسلة احترافي للمتابعة فقط."
+              : "This app is NOT for emergencies.\n\nIn an emergency:\n1. Call 997 immediately\n2. Contact the relevant authorities\n3. Do NOT rely on this app\n\nThis is a professional messaging tool for follow-up communication only."}
           </ThemedText>
           <Pressable
             onPress={() => {
