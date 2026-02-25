@@ -8,7 +8,41 @@ import {
   hashPassword, comparePasswords, generateToken, verifyToken,
   authMiddleware, validatePassword,
 } from "./auth";
+import nodemailer from "nodemailer";
 import * as storage from "./storage";
+
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
+  port: parseInt(process.env.SMTP_PORT || "587"),
+  secure: false,
+  auth: {
+    user: process.env.SMTP_USER || process.env.EMAIL_USER,
+    pass: process.env.SMTP_PASSWORD || process.env.EMAIL_PASS,
+  },
+});
+
+async function sendVerificationEmail(email: string, code: string) {
+  try {
+    await transporter.sendMail({
+      from: `"Saleem App" <${process.env.SMTP_USER || process.env.EMAIL_USER || "noreply@saleem.app"}>`,
+      to: email,
+      subject: "Your Saleem Verification Code",
+      text: `Welcome to Saleem! Your verification code is: ${code}`,
+      html: `<div style="font-family: Arial, sans-serif; max-width: 400px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #003366;">Saleem - سليم</h2>
+        <p>Your verification code is:</p>
+        <h1 style="color: #50C878; letter-spacing: 8px; text-align: center; font-size: 32px;">${code}</h1>
+        <p>This code expires in 15 minutes.</p>
+        <p style="color: #666; font-size: 12px;">If you did not request this code, please ignore this email.</p>
+      </div>`,
+    });
+    console.log(`Verification email sent to ${email}`);
+    return true;
+  } catch (error) {
+    console.error("Email failed to send:", error);
+    return false;
+  }
+}
 
 const upload = multer({
   dest: "uploads/",
@@ -29,12 +63,14 @@ function generateVerificationCode(): string {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+
   app.use("/uploads", (req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     next();
   }, require("express").static(uploadsDir));
 
   // === DOCTOR AUTH ===
+
   app.post("/api/doctors/register", async (req: Request, res: Response) => {
     try {
       const { email, password, nameEn, nameAr, phone, specialization, licenseNumber, licenseType } = req.body;
@@ -80,6 +116,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.createUserAgreement({ userId: doctor.id, userType: "doctor" });
 
       console.log(`[DEV] Verification code for ${email}: ${code}`);
+      sendVerificationEmail(email.toLowerCase(), code);
 
       res.status(201).json({
         success: true,
@@ -120,6 +157,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           codeExpiresAt,
         });
         console.log(`[DEV] Verification code for ${email}: ${code}`);
+        sendVerificationEmail(email.toLowerCase(), code);
         return res.status(403).json({
           message: "Email not verified",
           verification_required: true,
@@ -215,6 +253,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.createUserAgreement({ userId: patient.id, userType: "patient" });
 
       console.log(`[DEV] Verification code for ${email}: ${code}`);
+      sendVerificationEmail(email.toLowerCase(), code);
 
       res.status(201).json({
         success: true,
@@ -255,6 +294,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           codeExpiresAt,
         });
         console.log(`[DEV] Verification code for ${email}: ${code}`);
+        sendVerificationEmail(email.toLowerCase(), code);
         return res.status(403).json({
           message: "Email not verified",
           verification_required: true,
@@ -398,6 +438,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       console.log(`[DEV] Resent verification code for ${email}: ${code}`);
+      sendVerificationEmail(normalizedEmail, code);
 
       res.json({ success: true, message: "Verification code resent" });
     } catch (error) {
