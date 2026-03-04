@@ -33,7 +33,7 @@ function setupCors(app: express.Application) {
     const isLocalhost =
       origin?.startsWith("http://localhost:") ||
       origin?.startsWith("http://127.0.0.1:");
-
+      origin?.startsWith("https://saleemchat.replit.app");
     if (origin && (origins.has(origin) || isLocalhost)) {
       res.header("Access-Control-Allow-Origin", origin);
       res.header(
