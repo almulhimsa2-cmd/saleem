@@ -112,6 +112,8 @@ const styles = StyleSheet.create({
   header: {
     alignItems: "center",
     marginTop: Spacing["3xl"],
+    paddingTop: 30,
+    paddingBottom: 20,
   },
   logo: {
     width: 100,
@@ -121,10 +123,12 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 36,
+    lineHeight: 46,
   },
   titleAr: {
     fontSize: 32,
     marginTop: -Spacing.sm,
+    lineHeight: 42,
   },
   cardsContainer: {
     flex: 1,

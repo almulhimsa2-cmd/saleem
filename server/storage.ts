@@ -228,3 +228,88 @@ export async function getUserAgreement(userId: string): Promise<UserAgreement | 
   const [agreement] = await db.select().from(userAgreements).where(eq(userAgreements.userId, userId));
   return agreement;
 }
+
+export async function getAllDoctors(): Promise<Omit<Doctor, "password">[]> {
+  const rows = await db.select().from(doctors).orderBy(desc(doctors.createdAt));
+  return rows.map(({ password, ...rest }) => rest);
+}
+
+export async function getAllPatients(): Promise<Omit<Patient, "password">[]> {
+  const rows = await db.select().from(patients).orderBy(desc(patients.createdAt));
+  return rows.map(({ password, ...rest }) => rest);
+}
+
+export async function getDoctorCount(): Promise<number> {
+  const [row] = await db.select({ count: sql<number>`count(*)` }).from(doctors);
+  return Number(row?.count || 0);
+}
+
+export async function getPatientCount(): Promise<number> {
+  const [row] = await db.select({ count: sql<number>`count(*)` }).from(patients);
+  return Number(row?.count || 0);
+}
+
+export async function getMessageCountToday(): Promise<number> {
+  const [row] = await db.select({ count: sql<number>`count(*)` }).from(messages).where(
+    sql`${messages.createdAt} >= CURRENT_DATE`
+  );
+  return Number(row?.count || 0);
+}
+
+export async function getActiveUsersToday(): Promise<number> {
+  const [row] = await db.select({ count: sql<number>`count(distinct ${messages.senderId})` }).from(messages).where(
+    sql`${messages.createdAt} >= CURRENT_DATE`
+  );
+  return Number(row?.count || 0);
+}
+
+export async function getNewDoctorsToday(): Promise<number> {
+  const [row] = await db.select({ count: sql<number>`count(*)` }).from(doctors).where(
+    sql`${doctors.createdAt} >= CURRENT_DATE`
+  );
+  return Number(row?.count || 0);
+}
+
+export async function getNewPatientsToday(): Promise<number> {
+  const [row] = await db.select({ count: sql<number>`count(*)` }).from(patients).where(
+    sql`${patients.createdAt} >= CURRENT_DATE`
+  );
+  return Number(row?.count || 0);
+}
+
+export async function getTotalChats(): Promise<number> {
+  const [row] = await db.select({ count: sql<number>`count(*)` }).from(chats);
+  return Number(row?.count || 0);
+}
+
+export async function getUserGrowth(days: number = 30): Promise<{ date: string; doctors: number; patients: number }[]> {
+  const doctorGrowth = await db.select({
+    date: sql<string>`DATE(${doctors.createdAt})`,
+    count: sql<number>`count(*)`,
+  }).from(doctors).where(
+    sql`${doctors.createdAt} >= CURRENT_DATE - INTERVAL '${sql.raw(String(days))} days'`
+  ).groupBy(sql`DATE(${doctors.createdAt})`).orderBy(sql`DATE(${doctors.createdAt})`);
+
+  const patientGrowth = await db.select({
+    date: sql<string>`DATE(${patients.createdAt})`,
+    count: sql<number>`count(*)`,
+  }).from(patients).where(
+    sql`${patients.createdAt} >= CURRENT_DATE - INTERVAL '${sql.raw(String(days))} days'`
+  ).groupBy(sql`DATE(${patients.createdAt})`).orderBy(sql`DATE(${patients.createdAt})`);
+
+  const dateMap = new Map<string, { doctors: number; patients: number }>();
+  for (const row of doctorGrowth) {
+    const d = String(row.date);
+    dateMap.set(d, { doctors: Number(row.count), patients: 0 });
+  }
+  for (const row of patientGrowth) {
+    const d = String(row.date);
+    const existing = dateMap.get(d) || { doctors: 0, patients: 0 };
+    existing.patients = Number(row.count);
+    dateMap.set(d, existing);
+  }
+
+  return Array.from(dateMap.entries())
+    .map(([date, counts]) => ({ date, ...counts }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
