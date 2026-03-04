@@ -411,6 +411,76 @@ async function createUserAgreement(data) {
   }).returning();
   return agreement;
 }
+async function getAllDoctors() {
+  const rows = await db.select().from(doctors).orderBy((0, import_drizzle_orm2.desc)(doctors.createdAt));
+  return rows.map(({ password, ...rest }) => rest);
+}
+async function getAllPatients() {
+  const rows = await db.select().from(patients).orderBy((0, import_drizzle_orm2.desc)(patients.createdAt));
+  return rows.map(({ password, ...rest }) => rest);
+}
+async function getDoctorCount() {
+  const [row] = await db.select({ count: import_drizzle_orm2.sql`count(*)` }).from(doctors);
+  return Number(row?.count || 0);
+}
+async function getPatientCount() {
+  const [row] = await db.select({ count: import_drizzle_orm2.sql`count(*)` }).from(patients);
+  return Number(row?.count || 0);
+}
+async function getMessageCountToday() {
+  const [row] = await db.select({ count: import_drizzle_orm2.sql`count(*)` }).from(messages).where(
+    import_drizzle_orm2.sql`${messages.createdAt} >= CURRENT_DATE`
+  );
+  return Number(row?.count || 0);
+}
+async function getActiveUsersToday() {
+  const [row] = await db.select({ count: import_drizzle_orm2.sql`count(distinct ${messages.senderId})` }).from(messages).where(
+    import_drizzle_orm2.sql`${messages.createdAt} >= CURRENT_DATE`
+  );
+  return Number(row?.count || 0);
+}
+async function getNewDoctorsToday() {
+  const [row] = await db.select({ count: import_drizzle_orm2.sql`count(*)` }).from(doctors).where(
+    import_drizzle_orm2.sql`${doctors.createdAt} >= CURRENT_DATE`
+  );
+  return Number(row?.count || 0);
+}
+async function getNewPatientsToday() {
+  const [row] = await db.select({ count: import_drizzle_orm2.sql`count(*)` }).from(patients).where(
+    import_drizzle_orm2.sql`${patients.createdAt} >= CURRENT_DATE`
+  );
+  return Number(row?.count || 0);
+}
+async function getTotalChats() {
+  const [row] = await db.select({ count: import_drizzle_orm2.sql`count(*)` }).from(chats);
+  return Number(row?.count || 0);
+}
+async function getUserGrowth(days = 30) {
+  const doctorGrowth = await db.select({
+    date: import_drizzle_orm2.sql`DATE(${doctors.createdAt})`,
+    count: import_drizzle_orm2.sql`count(*)`
+  }).from(doctors).where(
+    import_drizzle_orm2.sql`${doctors.createdAt} >= CURRENT_DATE - INTERVAL '${import_drizzle_orm2.sql.raw(String(days))} days'`
+  ).groupBy(import_drizzle_orm2.sql`DATE(${doctors.createdAt})`).orderBy(import_drizzle_orm2.sql`DATE(${doctors.createdAt})`);
+  const patientGrowth = await db.select({
+    date: import_drizzle_orm2.sql`DATE(${patients.createdAt})`,
+    count: import_drizzle_orm2.sql`count(*)`
+  }).from(patients).where(
+    import_drizzle_orm2.sql`${patients.createdAt} >= CURRENT_DATE - INTERVAL '${import_drizzle_orm2.sql.raw(String(days))} days'`
+  ).groupBy(import_drizzle_orm2.sql`DATE(${patients.createdAt})`).orderBy(import_drizzle_orm2.sql`DATE(${patients.createdAt})`);
+  const dateMap = /* @__PURE__ */ new Map();
+  for (const row of doctorGrowth) {
+    const d = String(row.date);
+    dateMap.set(d, { doctors: Number(row.count), patients: 0 });
+  }
+  for (const row of patientGrowth) {
+    const d = String(row.date);
+    const existing = dateMap.get(d) || { doctors: 0, patients: 0 };
+    existing.patients = Number(row.count);
+    dateMap.set(d, existing);
+  }
+  return Array.from(dateMap.entries()).map(([date, counts]) => ({ date, ...counts })).sort((a, b) => a.date.localeCompare(b.date));
+}
 
 // server/routes.ts
 var transporter = import_nodemailer.default.createTransport({
@@ -1065,6 +1135,91 @@ async function registerRoutes(app2) {
       console.log(`Socket disconnected: ${userType} ${userId}`);
     });
   });
+  const ADMIN_EMAIL = "admin@saleem.app";
+  function adminMiddleware(req, res, next) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Admin authentication required" });
+    }
+    const token = authHeader.split(" ")[1];
+    const payload = verifyToken(token);
+    if (!payload || !payload.admin) {
+      return res.status(401).json({ message: "Not authorized as admin" });
+    }
+    next();
+  }
+  app2.post("/api/admin/login", async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      if (!email || !password) {
+        return res.status(400).json({ message: "Email and password required" });
+      }
+      if (email.toLowerCase() !== ADMIN_EMAIL) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+      const adminPassword = process.env.ADMIN_PASSWORD;
+      if (!adminPassword || password !== adminPassword) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+      const jwt2 = require("jsonwebtoken");
+      const JWT_SECRET2 = process.env.SESSION_SECRET || "saleem-health-secret-key-2024";
+      const token = jwt2.sign({ id: "admin", type: "doctor", admin: true, email: ADMIN_EMAIL }, JWT_SECRET2, { expiresIn: "24h" });
+      res.json({ success: true, token });
+    } catch (error) {
+      console.error("Admin login error:", error);
+      res.status(500).json({ message: "Login failed" });
+    }
+  });
+  app2.get("/api/admin/stats", adminMiddleware, async (_req, res) => {
+    try {
+      const [totalDoctors, totalPatients, messagesToday, activeToday, newDoctorsToday, newPatientsToday, totalChats] = await Promise.all([
+        getDoctorCount(),
+        getPatientCount(),
+        getMessageCountToday(),
+        getActiveUsersToday(),
+        getNewDoctorsToday(),
+        getNewPatientsToday(),
+        getTotalChats()
+      ]);
+      res.json({
+        totalDoctors,
+        totalPatients,
+        totalUsers: totalDoctors + totalPatients,
+        messagesToday,
+        activeToday,
+        newToday: newDoctorsToday + newPatientsToday,
+        totalChats
+      });
+    } catch (error) {
+      console.error("Admin stats error:", error);
+      res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+  app2.get("/api/admin/users", adminMiddleware, async (_req, res) => {
+    try {
+      const [doctorsList, patientsList] = await Promise.all([
+        getAllDoctors(),
+        getAllPatients()
+      ]);
+      const users = [
+        ...doctorsList.map((d) => ({ id: d.id, email: d.email, displayName: d.nameEn || d.nameAr || "Unknown", userType: "professional", emailVerified: d.emailVerified, specialization: d.specialization, createdAt: d.createdAt })),
+        ...patientsList.map((p) => ({ id: p.id, email: p.email, displayName: p.fullName || "Unknown", userType: "client", emailVerified: p.emailVerified, createdAt: p.createdAt }))
+      ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      res.json(users);
+    } catch (error) {
+      console.error("Admin users error:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+  app2.get("/api/admin/user-growth", adminMiddleware, async (_req, res) => {
+    try {
+      const growth = await getUserGrowth(30);
+      res.json(growth);
+    } catch (error) {
+      console.error("Admin growth error:", error);
+      res.status(500).json({ message: "Failed to fetch growth data" });
+    }
+  });
   return httpServer;
 }
 
@@ -1086,6 +1241,7 @@ function setupCors(app2) {
     }
     const origin = req.header("origin");
     const isLocalhost = origin?.startsWith("http://localhost:") || origin?.startsWith("http://127.0.0.1:");
+    origin?.startsWith("https://saleemchat.replit.app");
     if (origin && (origins.has(origin) || isLocalhost)) {
       res.header("Access-Control-Allow-Origin", origin);
       res.header(
@@ -1123,6 +1279,10 @@ function setupRequestLogging(app2) {
     };
     res.on("finish", () => {
       if (!path3.startsWith("/api")) return;
+      if (path3 === "/api/admin/login") {
+        log(`${req.method} ${path3} ${res.statusCode}`);
+        return;
+      }
       const duration = Date.now() - start;
       let logLine = `${req.method} ${path3} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
@@ -1190,6 +1350,15 @@ function configureExpoAndLanding(app2) {
   const landingPageTemplate = fs2.readFileSync(templatePath, "utf-8");
   const appName = getAppName();
   log("Serving static Expo files with dynamic manifest routing");
+  app2.get("/admin", (_req, res) => {
+    const adminTemplatePath = path2.resolve(process.cwd(), "server", "templates", "admin.html");
+    if (fs2.existsSync(adminTemplatePath)) {
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.status(200).send(fs2.readFileSync(adminTemplatePath, "utf-8"));
+    } else {
+      res.status(404).send("Admin dashboard not found");
+    }
+  });
   app2.use((req, res, next) => {
     if (req.path.startsWith("/api")) {
       return next();

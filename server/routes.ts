@@ -732,5 +732,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // === ADMIN ROUTES ===
+  const ADMIN_EMAIL = "admin@saleem.app";
+
+  function adminMiddleware(req: Request, res: Response, next: any) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Admin authentication required" });
+    }
+    const token = authHeader.split(" ")[1];
+    const payload = verifyToken(token);
+    if (!payload || !(payload as any).admin) {
+      return res.status(401).json({ message: "Not authorized as admin" });
+    }
+    next();
+  }
+
+  app.post("/api/admin/login", async (req: Request, res: Response) => {
+    try {
+      const { email, password } = req.body;
+      if (!email || !password) {
+        return res.status(400).json({ message: "Email and password required" });
+      }
+      if (email.toLowerCase() !== ADMIN_EMAIL) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+      const adminPassword = process.env.ADMIN_PASSWORD;
+      if (!adminPassword || password !== adminPassword) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+      const jwt = require("jsonwebtoken");
+      const JWT_SECRET = process.env.SESSION_SECRET || "saleem-health-secret-key-2024";
+      const token = jwt.sign({ id: "admin", type: "doctor", admin: true, email: ADMIN_EMAIL }, JWT_SECRET, { expiresIn: "24h" });
+      res.json({ success: true, token });
+    } catch (error) {
+      console.error("Admin login error:", error);
+      res.status(500).json({ message: "Login failed" });
+    }
+  });
+
+  app.get("/api/admin/stats", adminMiddleware, async (_req: Request, res: Response) => {
+    try {
+      const [totalDoctors, totalPatients, messagesToday, activeToday, newDoctorsToday, newPatientsToday, totalChats] = await Promise.all([
+        storage.getDoctorCount(),
+        storage.getPatientCount(),
+        storage.getMessageCountToday(),
+        storage.getActiveUsersToday(),
+        storage.getNewDoctorsToday(),
+        storage.getNewPatientsToday(),
+        storage.getTotalChats(),
+      ]);
+      res.json({
+        totalDoctors,
+        totalPatients,
+        totalUsers: totalDoctors + totalPatients,
+        messagesToday,
+        activeToday,
+        newToday: newDoctorsToday + newPatientsToday,
+        totalChats,
+      });
+    } catch (error) {
+      console.error("Admin stats error:", error);
+      res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
+  app.get("/api/admin/users", adminMiddleware, async (_req: Request, res: Response) => {
+    try {
+      const [doctorsList, patientsList] = await Promise.all([
+        storage.getAllDoctors(),
+        storage.getAllPatients(),
+      ]);
+      const users = [
+        ...doctorsList.map((d: any) => ({ id: d.id, email: d.email, displayName: d.nameEn || d.nameAr || "Unknown", userType: "professional", emailVerified: d.emailVerified, specialization: d.specialization, createdAt: d.createdAt })),
+        ...patientsList.map((p: any) => ({ id: p.id, email: p.email, displayName: p.fullName || "Unknown", userType: "client", emailVerified: p.emailVerified, createdAt: p.createdAt })),
+      ].sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      res.json(users);
+    } catch (error) {
+      console.error("Admin users error:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.get("/api/admin/user-growth", adminMiddleware, async (_req: Request, res: Response) => {
+    try {
+      const growth = await storage.getUserGrowth(30);
+      res.json(growth);
+    } catch (error) {
+      console.error("Admin growth error:", error);
+      res.status(500).json({ message: "Failed to fetch growth data" });
+    }
+  });
+
   return httpServer;
 }

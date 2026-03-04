@@ -59,6 +59,14 @@ Saleem is a bilingual (Arabic/English) professional messaging platform for Saudi
 - GET/POST /api/chats/:chatId/messages
 - GET/PUT /api/doctors/notes/:patientId
 - POST /api/doctors/block/:patientId
+- POST /api/admin/login (admin@saleem.app + ADMIN_PASSWORD env)
+- GET /api/admin/stats, /api/admin/users, /api/admin/user-growth (JWT-protected with admin flag)
+
+## Admin Dashboard
+- **URL**: `/admin` (web-based HTML dashboard served by Express)
+- **Login**: admin@saleem.app with ADMIN_PASSWORD secret
+- **Features**: Stats overview (users, messages, chats), user list with type badges, signup growth chart (Chart.js)
+- **Auth**: JWT with admin: true flag, 24h expiry, separate from regular user auth
 
 ## File Structure
 ```

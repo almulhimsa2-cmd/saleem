@@ -78,6 +78,7 @@ function setupRequestLogging(app: express.Application) {
 
     res.on("finish", () => {
       if (!path.startsWith("/api")) return;
+      if (path === "/api/admin/login") { log(`${req.method} ${path} ${res.statusCode}`); return; }
 
       const duration = Date.now() - start;
 
@@ -171,6 +172,16 @@ function configureExpoAndLanding(app: express.Application) {
   const appName = getAppName();
 
   log("Serving static Expo files with dynamic manifest routing");
+
+  app.get("/admin", (_req: Request, res: Response) => {
+    const adminTemplatePath = path.resolve(process.cwd(), "server", "templates", "admin.html");
+    if (fs.existsSync(adminTemplatePath)) {
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.status(200).send(fs.readFileSync(adminTemplatePath, "utf-8"));
+    } else {
+      res.status(404).send("Admin dashboard not found");
+    }
+  });
 
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (req.path.startsWith("/api")) {
