@@ -23,44 +23,69 @@ export default function ProfessionalProfileScreen({ route }: any) {
     setIsEditing(false);
   };
 
-  return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>Your Professional Profile</Text>
+return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={{ flex: 1 }}
+      keyboardVerticalOffset={100}
+    >
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{ flexGrow: 1 }}
+      >
+        <Text style={styles.title}>Your Professional Profile</Text>
 
-      {/* Current Code */}
-      <View style={styles.codeSection}>
-        <Text style={styles.label}>Your Professional Code</Text>
-        <Text style={styles.currentCode}>{customCode}</Text>
-        <Text style={styles.hint}>
-          Clients use this code to connect with you
-        </Text>
-      </View>
+        {/* Current Code */}
+        <View style={styles.codeSection}>
+          <Text style={styles.label}>Your Professional Code</Text>
+          <Text style={styles.currentCode}>{customCode}</Text>
+          <Text style={styles.hint}>
+            Clients use this code to connect with you
+          </Text>
+        </View>
 
-      {/* Edit Code Button */}
-      {!isEditing ? (
-        <TouchableOpacity
-          style={styles.editBtn}
-          onPress={() => setIsEditing(true)}
-        >
-          <Text style={styles.editBtnText}>Change Your Code</Text>
-        </TouchableOpacity>
-      ) : (
-        <View style={styles.editSection}>
-          <Text style={styles.label}>New Code (ABC123 format)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g., ABC123"
-            value={customCode}
-            onChangeText={(text) => setCustomCode(text.toUpperCase())}
-            maxLength={6}
-            autoCapitalize="characters"
-          />
-          <View style={styles.buttonRow}>
-            <TouchableOpacity
-              style={[styles.btn, styles.saveBtn]}
-              onPress={handleChangeCode}
-            >
-              <Text style={styles.btnText}>Save</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style
+        {/* Edit Code Button */}
+        {!isEditing ? (
+          <TouchableOpacity
+            style={styles.editBtn}
+            onPress={() => setIsEditing(true)}
+          >
+            <Text style={styles.editBtnText}>Change Your Code</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.editSection}>
+            <Text style={styles.label}>New Code (ABC123 format)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g., ABC123"
+              value={customCode}
+              onChangeText={(text) => setCustomCode(text.toUpperCase())}
+              maxLength={6}
+              autoCapitalize="characters"
+            />
+            <View style={styles.buttonRow}>
+              <TouchableOpacity
+                style={[styles.btn, styles.saveBtn]}
+                onPress={handleChangeCode}
+              >
+                <Text style={styles.btnText}>Save</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.btn, styles.cancelBtn]}
+                onPress={() => setIsEditing(false)}
+              >
+                <Text style={styles.btnText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        <View style={styles.qrSection}>
+          <Text style={styles.label}>Share Your Code</Text>
+          <TouchableOpacity style={styles.shareBtn}>
+            <Text style={styles.shareBtnText}>📥 Download for Printing</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
