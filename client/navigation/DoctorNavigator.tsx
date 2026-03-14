@@ -1,14 +1,14 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
-import DoctorDashboardScreen from "@/screens/DoctorDashboardScreen";
+import ProfessionalDashboardScreen from "@/screens/ProfessionalDashboardScreen";
 import DoctorChatScreen from "@/screens/DoctorChatScreen";
 import DoctorProfileScreen from "@/screens/DoctorProfileScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 export type DoctorStackParamList = {
-  DoctorDashboard: undefined;
+  ProfessionalDashboard: undefined;
   DoctorChat: { chatId: string; chatName: string; patientId: string };
   DoctorProfile: undefined;
 };
@@ -22,8 +22,8 @@ export default function DoctorNavigator() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen
-        name="DoctorDashboard"
-        component={DoctorDashboardScreen}
+        name="ProfessionalDashboard"
+        component={ProfessionalDashboardScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen

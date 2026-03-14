@@ -13,7 +13,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, SaleemColors, BorderRadius } from "@/constants/theme";
 
-export default function DoctorLoginScreen({ navigation }: any) {
+export default function ProfessionalLoginScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
   const { theme, isDark } = useTheme();
   const { language, isRTL } = useLanguage();

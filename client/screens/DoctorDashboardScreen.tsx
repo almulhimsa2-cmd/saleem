@@ -26,7 +26,7 @@ interface ChatItem {
   hasNotes: boolean;
 }
 
-export default function DoctorDashboardScreen({ navigation }: any) {
+export default function ProfessionalDashboardScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const { language } = useLanguage();
